@@ -3,8 +3,10 @@ import random
 
 import pytest
 
-from engine.cards import parse_cards, remaining_deck
-from engine.equity import InvalidEquityInputError, calculate_equity
+from collections import Counter
+
+from engine.cards import Card, full_deck, parse_cards, remaining_deck
+from engine.equity import InvalidEquityInputError, _deal_trial, calculate_equity
 from engine.evaluator import compare_hands
 
 MC_ITERATIONS = 60_000
@@ -264,3 +266,37 @@ def test_rejects_too_many_known_and_ranged_opponents():
 
     with pytest.raises(InvalidEquityInputError):
         calculate_equity(hero, [], villain_cards=[known_villain], villain_ranges=[["KK"]], num_opponents=1)
+
+
+def test_deal_trial_two_overlapping_ranges_gives_uniform_feasible_joint_distribution():
+    """Controesempio: un filtraggio sequenziale (pesca il primo pool, poi
+    filtra il secondo su quanto resta) produce un bias quando i due pool si
+    bloccano a vicenda in modo asimmetrico. Qui pool_a = {A, B}, pool_b = {C, D}
+    con A che confligge solo con C (condividono 7h), mentre B non confligge con
+    nessuno dei due. Le tre coppie congiuntamente compatibili sono (A,D), (B,C),
+    (B,D): con un dealing corretto devono uscire ciascuna ~1/3 delle volte.
+    Un filtraggio sequenziale darebbe invece (A,D)=1/2, (B,C)=1/4, (B,D)=1/4.
+    """
+    A = (Card("7", "h"), Card("6", "h"))
+    B = (Card("7", "s"), Card("6", "s"))
+    C = (Card("7", "h"), Card("5", "h"))  # confligge con A (condivide 7h)
+    D = (Card("9", "c"), Card("8", "d"))  # non confligge né con A né con B
+
+    # unknown_board_count e unknown_random_count sono 0 in questo test: il
+    # mazzo residuo non viene mai campionato, serve solo come parametro.
+    deck = full_deck()
+    rng = random.Random(42)
+
+    trials = 30_000
+    outcomes: Counter[tuple[str, str]] = Counter()
+    for _ in range(trials):
+        _, hands = _deal_trial(rng, deck, unknown_board_count=0, unknown_random_count=0, range_pools=[[A, B], [C, D]])
+        first = "A" if hands[0] == list(A) else "B"
+        second = "C" if hands[1] == list(C) else "D"
+        outcomes[(first, second)] += 1
+
+    assert outcomes[("A", "C")] == 0  # combinazione infeasible: mai dovrebbe uscire
+
+    for pair in [("A", "D"), ("B", "C"), ("B", "D")]:
+        frequency = outcomes[pair] / trials
+        assert frequency == pytest.approx(1 / 3, abs=0.02)

@@ -80,6 +80,7 @@
     <section class="mb-3">
       <h2 class="h6 text-uppercase text-secondary">Posizioni</h2>
       <div id="positionsContainer" class="row g-2"></div>
+      <div class="form-text">Solo di riferimento: non influenzano i calcoli, utili per tenere traccia del tavolo.</div>
     </section>
 
     <section class="mb-3 row g-2">
@@ -104,7 +105,10 @@
       <div class="row g-2 mt-1 d-none" id="shoveInputs">
         <div class="col-6">
           <label class="form-label text-secondary text-uppercase small mb-1" for="shoveAmount">Importo shove (€)</label>
-          <input type="number" inputmode="decimal" class="form-control" id="shoveAmount" placeholder="0" min="0" step="0.5">
+          <div class="input-group">
+            <input type="number" inputmode="decimal" class="form-control" id="shoveAmount" placeholder="0" min="0" step="0.5">
+            <button class="btn btn-outline-secondary" type="button" id="useBuyInBtn" title="Usa il buy-in come importo shove">Buy-in</button>
+          </div>
         </div>
         <div class="col-6">
           <label class="form-label text-secondary text-uppercase small mb-1" for="foldProbability">Fold % stimata</label>

@@ -65,30 +65,41 @@ def _deal_trial(
     unknown_board_count: int,
     unknown_random_count: int,
     range_pools: list[list[tuple[Card, Card]]],
-    max_attempts: int = 50,
+    max_attempts: int = 500,
 ) -> tuple[list[Card], list[list[Card]]]:
-    """Pesca le carte di un trial: prima gli avversari a range (dal pool più
-    vincolato), poi le carte random (avversari ignoti + board mancante) dal
-    mazzo residuo. Ritenta se un range risulta interamente bloccato dalle
-    carte già assegnate in questo stesso trial (evento raro)."""
+    """Pesca le carte di un trial.
+
+    Gli avversari a range vengono pescati con rejection sampling: ognuno pesca
+    in modo indipendente e uniforme dal proprio pool intero; se due pool si
+    accavallano su una stessa carta, l'intero tentativo viene ritentato. Questo
+    è l'unico modo per ottenere una distribuzione uniforme sulle combinazioni
+    congiuntamente valide quando i pool si bloccano a vicenda in modo
+    asimmetrico — un filtraggio sequenziale (pesca il primo pool, poi filtra
+    il secondo sulle carte residue) introdurrebbe un bias: la probabilità di
+    ogni combinazione finale dipenderebbe dall'ordine di pesca invece che
+    essere uniforme tra le combinazioni congiuntamente compatibili.
+    Le carte random (avversari ignoti + board mancante) vengono poi pescate
+    uniformemente da quanto resta del mazzo, senza bisogno di rejection
+    sampling perché non hanno un pool proprio da far collidere con altri.
+    """
     for _ in range(max_attempts):
-        available = list(deck)
+        used: set[Card] = set()
         ranged_hands: list[list[Card]] = []
-        blocked = False
+        conflict = False
 
         for pool in range_pools:
-            valid = [combo for combo in pool if combo[0] in available and combo[1] in available]
-            if not valid:
-                blocked = True
+            c1, c2 = rng.choice(pool)
+            if c1 in used or c2 in used:
+                conflict = True
                 break
-            c1, c2 = rng.choice(valid)
+            used.add(c1)
+            used.add(c2)
             ranged_hands.append([c1, c2])
-            available.remove(c1)
-            available.remove(c2)
 
-        if blocked:
+        if conflict:
             continue
 
+        available = [card for card in deck if card not in used]
         needed = unknown_board_count + 2 * unknown_random_count
         drawn = rng.sample(available, needed)
         board_draw = drawn[:unknown_board_count]

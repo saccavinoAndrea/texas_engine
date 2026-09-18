@@ -350,6 +350,11 @@ document.getElementById("useBlindsBtn").addEventListener("click", () => {
   document.getElementById("potBeforeCall").value = (sb + bb).toFixed(2);
 });
 
+document.getElementById("useBuyInBtn").addEventListener("click", () => {
+  const buyIn = parseFloat(document.getElementById("buyIn").value || "0");
+  document.getElementById("shoveAmount").value = buyIn.toFixed(2);
+});
+
 document.getElementById("enableShove").addEventListener("change", (e) => {
   document.getElementById("shoveInputs").classList.toggle("d-none", !e.target.checked);
   document.getElementById("shoveResultCard").classList.add("d-none");
@@ -519,13 +524,16 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
   btn.disabled = true;
   btn.textContent = "Calcolo...";
   try {
+    // Pot odds non dipende dall'equity: la avviamo subito invece di aspettare
+    // che l'equity (Monte Carlo, potenzialmente lenta) sia pronta.
+    const potOddsPromise = postJSON("/api/pot-odds", potOddsPayload);
     const equity = await postJSON("/api/equity", equityPayload);
     const evPayload = {
       hero_equity: equity.hero_equity,
       amount_to_call: amountToCall,
       pot_before_call: potBeforeCall,
     };
-    const requests = [postJSON("/api/pot-odds", potOddsPayload), postJSON("/api/ev", evPayload)];
+    const requests = [potOddsPromise, postJSON("/api/ev", evPayload)];
     if (shoveEnabled) {
       requests.push(
         postJSON("/api/shove-ev", {

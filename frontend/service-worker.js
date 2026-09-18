@@ -40,7 +40,11 @@ self.addEventListener("fetch", (event) => {
     fetch(event.request)
       .then((response) => {
         const responseClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+        // Il salvataggio in cache non deve bloccare la risposta all'utente, ma va
+        // comunque legato a waitUntil: altrimenti è una promise "fluttuante" che il
+        // browser può interrompere subito dopo aver risolto respondWith, lasciando
+        // la cache di fallback offline non aggiornata in modo intermittente.
+        event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone)));
         return response;
       })
       .catch(() => caches.match(event.request))
