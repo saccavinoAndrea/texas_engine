@@ -33,6 +33,13 @@ function usedCards(excludeSlot) {
     .map(([, card]) => card);
 }
 
+function cardFaceHTML(rank, symbol) {
+  return `
+    <span class="card-index"><span class="rank">${rank}</span><span class="suit">${symbol}</span></span>
+    <span class="card-pip">${symbol}</span>
+  `;
+}
+
 function renderSlot(slotId) {
   const el = document.querySelector(`[data-slot="${slotId}"]`);
   const card = state.slots[slotId];
@@ -44,7 +51,7 @@ function renderSlot(slotId) {
   const rank = card[0];
   const suit = card[1];
   const symbol = SUITS.find((s) => s.code === suit).symbol;
-  el.textContent = `${rank}${symbol}`;
+  el.innerHTML = cardFaceHTML(rank, symbol);
   el.classList.add("filled", `suit-${suit}`);
 }
 
@@ -61,7 +68,7 @@ function buildPickerGrid() {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = `picker-card suit-${suit.code}`;
-      btn.textContent = `${rank}${suit.symbol}`;
+      btn.innerHTML = cardFaceHTML(rank, suit.symbol);
       btn.disabled = excluded.includes(code);
       btn.addEventListener("click", () => selectCard(code));
       pickerGrid.appendChild(btn);

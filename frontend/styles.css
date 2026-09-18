@@ -7,31 +7,64 @@ body {
 }
 
 .card-slot {
+  position: relative;
   width: 64px;
-  height: 88px;
+  height: 90px;
+  border-radius: 8px;
+  border: 2px dashed #495057;
+  background-color: #1c2128;
+  color: #6c757d;
   font-size: 1.6rem;
   font-weight: 700;
-  border-radius: 10px;
-  border: 2px solid #495057;
-  background-color: #1c2128;
-  color: #e9ecef;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
 }
 
-.card-slot.filled {
-  border-color: #146c43;
+/* Slot/carta "riempita": aspetto di una vera carta da gioco (dorso bianco, indice, seme centrale) */
+.card-slot.filled,
+.picker-card {
+  border: 1px solid #c9ccd1;
+  background-color: #fdfdfd;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
 }
 
-.card-slot.suit-h,
-.card-slot.suit-d {
-  color: #ff6b6b;
+.card-index {
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  font-weight: 700;
 }
 
-.card-slot.suit-s,
-.card-slot.suit-c {
-  color: #e9ecef;
+.card-index .rank {
+  font-size: 0.95rem;
+}
+
+.card-index .suit {
+  font-size: 0.7rem;
+}
+
+.card-pip {
+  font-size: 1.7rem;
+}
+
+.suit-h .card-index,
+.suit-h .card-pip,
+.suit-d .card-index,
+.suit-d .card-pip {
+  color: #d32f2f;
+}
+
+.suit-s .card-index,
+.suit-s .card-pip,
+.suit-c .card-index,
+.suit-c .card-pip {
+  color: #1a1a1a;
 }
 
 #pickerGrid {
@@ -41,21 +74,14 @@ body {
 }
 
 .picker-card {
+  position: relative;
   aspect-ratio: 3 / 4;
   border-radius: 8px;
-  border: 2px solid #495057;
-  background-color: #1c2128;
-  color: #e9ecef;
-  font-size: 1.1rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 0;
 }
 
-.picker-card.suit-h,
-.picker-card.suit-d {
-  color: #ff6b6b;
+.picker-card .card-pip {
+  font-size: 1.3rem;
 }
 
 .picker-card:disabled {
