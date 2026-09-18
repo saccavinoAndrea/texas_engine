@@ -21,6 +21,8 @@ poetry run uvicorn api.main:app --reload
 
 L'app (API + frontend) sarà su `http://127.0.0.1:8000`.
 
+Per i comandi di avvio dettagliati — incluso l'accesso da smartphone sulla stessa rete wifi/hotspot — vedi [`GUIDA_AVVIO.md`](GUIDA_AVVIO.md).
+
 ## Deploy (Render, piano free)
 
 Il repo include `render.yaml`: basta collegare il repo su Render e verrà creato un web service Python che builda con Poetry e serve `api.main:app` via uvicorn.
