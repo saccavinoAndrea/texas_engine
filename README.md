@@ -8,7 +8,8 @@ Motore di supporto live per Texas Hold'em cash game: equity e pot odds, usabile 
 engine/     logica pura (carte, evaluator, equity, pot odds, ev, range), zero dipendenze da FastAPI
 api/        FastAPI: schemas Pydantic, router, static files della PWA
 frontend/   PWA (Bootstrap5 vendorizzato localmente, nessuna dipendenza da CDN esterni)
-tests/      pytest su engine/ e sugli endpoint API
+tests/      pytest su engine/ e sugli endpoint API, inclusi i test basati su proprietà (Hypothesis)
+tests_e2e/  test end-to-end con Playwright: un vero browser contro un vero server, separati dalla suite veloce
 ```
 
 ## Sviluppo locale
@@ -22,6 +23,17 @@ poetry run uvicorn api.main:app --reload
 L'app (API + frontend) sarà su `http://127.0.0.1:8000`.
 
 Per i comandi di avvio dettagliati vedi [`GUIDA_AVVIO.md`](GUIDA_AVVIO.md); per usare l'app dal telefono, con o senza il PC acceso, vedi [`GUIDA_SMARTPHONE.md`](GUIDA_SMARTPHONE.md).
+
+### Test
+
+`poetry run pytest` esegue la suite veloce (motore, API, e i test basati su proprietà con Hypothesis che generano centinaia di input casuali per verificare invarianti come "le equity sommano sempre a 1"): non serve un browser, gira in meno di un minuto.
+
+I test end-to-end in `tests_e2e/` sono separati apposta e non partono con il comando normale: aprono un vero Chromium con Playwright contro un vero server uvicorn (su una porta libera dedicata, mai la 8000) e cliccano/digitano come farebbe l'utente. Richiedono i browser di Playwright installati una tantum:
+
+```bash
+poetry run playwright install chromium
+poetry run pytest tests_e2e
+```
 
 ## Deploy (Render, piano free)
 
