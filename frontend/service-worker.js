@@ -1,4 +1,4 @@
-const CACHE_NAME = "texas-engine-shell-v3";
+const CACHE_NAME = "texas-engine-shell";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -25,6 +25,9 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Network-first: quando sei online prende sempre l'ultima versione dal server
+// (nessun bisogno di aggiornare manualmente la cache ad ogni modifica del frontend).
+// La cache serve solo come fallback se la rete non risponde (es. offline al tavolo).
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
@@ -34,6 +37,12 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });

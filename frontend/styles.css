@@ -22,49 +22,20 @@ body {
   padding: 0;
 }
 
-/* Slot/carta "riempita": aspetto di una vera carta da gioco (dorso bianco, indice, seme centrale) */
+/* Slot/carta "riempita": vera immagine di carta da gioco (illustrazioni reali per J/Q/K) */
 .card-slot.filled,
 .picker-card {
   border: 1px solid #c9ccd1;
   background-color: #fdfdfd;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
 }
 
-.card-index {
-  position: absolute;
-  top: 3px;
-  left: 5px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1;
-  font-weight: 700;
-}
-
-.card-index .rank {
-  font-size: 0.95rem;
-}
-
-.card-index .suit {
-  font-size: 0.7rem;
-}
-
-.card-pip {
-  font-size: 1.7rem;
-}
-
-.suit-h .card-index,
-.suit-h .card-pip,
-.suit-d .card-index,
-.suit-d .card-pip {
-  color: #d32f2f;
-}
-
-.suit-s .card-index,
-.suit-s .card-pip,
-.suit-c .card-index,
-.suit-c .card-pip {
-  color: #1a1a1a;
+.card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 #pickerGrid {
@@ -77,11 +48,7 @@ body {
   position: relative;
   aspect-ratio: 3 / 4;
   border-radius: 8px;
-  padding: 0;
-}
-
-.picker-card .card-pip {
-  font-size: 1.3rem;
+  padding: 2px;
 }
 
 .picker-card:disabled {

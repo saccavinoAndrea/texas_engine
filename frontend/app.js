@@ -1,10 +1,30 @@
 const RANKS = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"];
 const SUITS = [
-  { code: "s", symbol: "♠" },
-  { code: "h", symbol: "♥" },
-  { code: "d", symbol: "♦" },
-  { code: "c", symbol: "♣" },
+  { code: "s", symbol: "♠", imageName: "spade" },
+  { code: "h", symbol: "♥", imageName: "heart" },
+  { code: "d", symbol: "♦", imageName: "diamond" },
+  { code: "c", symbol: "♣", imageName: "club" },
 ];
+const RANK_IMAGE_TOKEN = {
+  A: "1",
+  K: "king",
+  Q: "queen",
+  J: "jack",
+  T: "10",
+  9: "9",
+  8: "8",
+  7: "7",
+  6: "6",
+  5: "5",
+  4: "4",
+  3: "3",
+  2: "2",
+};
+
+function cardImageSrc(rank, suitCode) {
+  const suit = SUITS.find((s) => s.code === suitCode);
+  return `/vendor/svg-cards/cards/${suit.imageName}_${RANK_IMAGE_TOKEN[rank]}.png`;
+}
 
 const BOARD_ORDER = ["flop1", "flop2", "flop3", "turn", "river"];
 const MAX_OPPONENTS = 8;
@@ -50,11 +70,9 @@ function usedCards(excludeSlot) {
     .map(([, card]) => card);
 }
 
-function cardFaceHTML(rank, symbol) {
-  return `
-    <span class="card-index"><span class="rank">${rank}</span><span class="suit">${symbol}</span></span>
-    <span class="card-pip">${symbol}</span>
-  `;
+function cardFaceHTML(rank, suitCode) {
+  const symbol = SUITS.find((s) => s.code === suitCode).symbol;
+  return `<img class="card-image" src="${cardImageSrc(rank, suitCode)}" alt="${rank}${symbol}" draggable="false">`;
 }
 
 function renderSlot(slotId) {
@@ -68,8 +86,7 @@ function renderSlot(slotId) {
   }
   const rank = card[0];
   const suit = card[1];
-  const symbol = SUITS.find((s) => s.code === suit).symbol;
-  el.innerHTML = cardFaceHTML(rank, symbol);
+  el.innerHTML = cardFaceHTML(rank, suit);
   el.classList.add("filled", `suit-${suit}`);
 }
 
@@ -86,7 +103,7 @@ function buildPickerGrid() {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = `picker-card suit-${suit.code}`;
-      btn.innerHTML = cardFaceHTML(rank, suit.symbol);
+      btn.innerHTML = cardFaceHTML(rank, suit.code);
       btn.disabled = excluded.includes(code);
       btn.addEventListener("click", () => selectCard(code));
       pickerGrid.appendChild(btn);
