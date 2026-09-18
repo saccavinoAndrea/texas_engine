@@ -1,4 +1,5 @@
 import itertools
+import math
 import random
 
 import pytest
@@ -65,6 +66,21 @@ def test_monte_carlo_reports_confidence_interval_containing_hero_equity():
     assert result.standard_error > 0
     assert result.ci_low < result.hero_equity < result.ci_high
     assert 0.0 <= result.ci_low < result.ci_high <= 1.0
+
+
+def test_standard_error_accounts_for_split_pots():
+    """In uno split il trial non vale 0 o 1 ma la quota spettante, quindi gli esiti
+    sono meno dispersi di una proporzione secca: la formula p(1-p), che assume esiti
+    0/1, restituirebbe un intervallo più largo del reale."""
+    hero = parse_cards(["2c", "3d"])
+    board = parse_cards(["Ah", "Kd", "Qc"])
+
+    result = calculate_equity(hero, board, num_opponents=2, iterations=20_000, rng=random.Random(5))
+
+    assert result.tie_probability > 0.02  # lo spot deve davvero produrre split
+    wald = math.sqrt(result.hero_equity * (1 - result.hero_equity) / result.trials)
+    assert result.standard_error < wald
+    assert result.ci_low < result.hero_equity < result.ci_high
 
 
 def test_exact_methods_do_not_report_confidence_interval():

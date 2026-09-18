@@ -806,6 +806,14 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
   let foldProbability = 0;
   if (shoveEnabled) {
     shoveAmount = parseFloat(document.getElementById("shoveAmount").value || "0");
+    if (shoveAmount <= amountToCall) {
+      showError(
+        amountToCall > 0
+          ? "L'importo dello shove deve superare quanto c'è da chiamare, altrimenti l'avversario non ha nulla da foldare"
+          : "Inserisci l'importo dello shove"
+      );
+      return;
+    }
     const foldPercentage = parseFloat(document.getElementById("foldProbability").value || "0");
     if (foldPercentage < 0 || foldPercentage > 100) {
       showError("La fold % deve essere tra 0 e 100");
@@ -837,6 +845,8 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
           fold_probability: foldProbability,
           pot_before_shove: potBeforeCall,
           shove_amount: shoveAmount,
+          // Già dentro al piatto: l'avversario deve aggiungere solo la differenza.
+          villain_already_in: amountToCall,
         })
       );
     }

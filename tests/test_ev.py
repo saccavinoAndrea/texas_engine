@@ -113,3 +113,52 @@ def test_shove_ev_rejects_negative_amounts():
         calculate_shove_ev(hero_equity_if_called=0.5, fold_probability=0.5, pot_before_shove=-10, shove_amount=20)
     with pytest.raises(InvalidEvInputError):
         calculate_shove_ev(hero_equity_if_called=0.5, fold_probability=0.5, pot_before_shove=10, shove_amount=-20)
+
+
+def test_shove_over_a_bet_does_not_count_the_villain_money_twice():
+    """Rilancio all-in sopra una puntata: l'avversario aggiunge solo la differenza.
+
+    Piatto iniziale 100, l'avversario punta 50 (piatto attuale 150), hero shova 400.
+    Chiamando, l'avversario mette altri 350: il piatto finale è 900, non 950, e
+    vincendo sempre hero incassa 900 - 400 = 500.
+    """
+    ev = calculate_shove_ev(
+        hero_equity_if_called=1.0,
+        fold_probability=0.0,
+        pot_before_shove=150,
+        shove_amount=400,
+        villain_already_in=50,
+    )
+
+    assert ev == pytest.approx(500.0)
+
+
+def test_shove_into_an_unbet_pot_is_unchanged():
+    """Senza una puntata avversaria da assorbire vale il familiare piatto + 2*shove."""
+    ev = calculate_shove_ev(
+        hero_equity_if_called=1.0, fold_probability=0.0, pot_before_shove=150, shove_amount=400
+    )
+
+    assert ev == pytest.approx(150 + 2 * 400 - 400)
+
+
+def test_shove_ev_rejects_shove_not_bigger_than_the_bet_faced():
+    with pytest.raises(InvalidEvInputError):
+        calculate_shove_ev(
+            hero_equity_if_called=0.5,
+            fold_probability=0.5,
+            pot_before_shove=150,
+            shove_amount=50,
+            villain_already_in=50,
+        )
+
+
+def test_shove_ev_rejects_villain_contribution_larger_than_pot():
+    with pytest.raises(InvalidEvInputError):
+        calculate_shove_ev(
+            hero_equity_if_called=0.5,
+            fold_probability=0.5,
+            pot_before_shove=40,
+            shove_amount=200,
+            villain_already_in=50,
+        )

@@ -186,17 +186,19 @@ def calculate_equity(
         raise InvalidEquityInputError(str(exc)) from exc
 
     hero_share = 0.0
+    hero_share_squares = 0.0  # serve per l'errore standard, vedi più sotto
     opponents_share = [0.0] * num_opponents
     tie_trials = 0
     trials = 0
 
     def record_outcome(full_board: list[Card], unknown_hands: list[list[Card]]) -> None:
-        nonlocal hero_share, tie_trials, trials
+        nonlocal hero_share, hero_share_squares, tie_trials, trials
         players = [hero_cards, *known_villain_hands, *unknown_hands]
         winners = compare_hands(players, full_board)
         share = 1.0 / len(winners)
         if 0 in winners:
             hero_share += share
+            hero_share_squares += share * share
             # Solo gli split di cui hero fa parte: un pareggio fra due avversari
             # non è uno split per hero, che quella mano la sta perdendo e basta.
             if len(winners) > 1:
@@ -236,11 +238,15 @@ def calculate_equity(
     hero_equity = hero_share / trials
     standard_error = ci_low = ci_high = None
     if method == "monte_carlo":
-        # Approssimazione di Wald sulla proporzione stimata: valida perché il
-        # Monte Carlo usa già migliaia di iterazioni (n grande). Per i metodi
-        # esatti (direct_comparison/exact_enumeration) non c'è errore campionario:
+        # Errore standard della media campionaria, calcolato dalla varianza vera
+        # degli esiti invece che con la formula p(1-p) della proporzione: un trial
+        # non vale sempre 0 o 1, perché in uno split vale la quota spettante
+        # (1/numero_di_vincitori). Con molti split p(1-p) sovrastima la dispersione
+        # e restituisce un intervallo più largo del dovuto. Senza split le due
+        # formule coincidono. Per i metodi esatti non c'è errore campionario:
         # il risultato è la probabilità esatta, non una stima.
-        standard_error = math.sqrt(hero_equity * (1 - hero_equity) / trials)
+        variance = (hero_share_squares - trials * hero_equity**2) / (trials - 1) if trials > 1 else 0.0
+        standard_error = math.sqrt(max(0.0, variance) / trials)
         ci_low = max(0.0, hero_equity - CONFIDENCE_Z_SCORE * standard_error)
         ci_high = min(1.0, hero_equity + CONFIDENCE_Z_SCORE * standard_error)
 

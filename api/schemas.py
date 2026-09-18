@@ -111,6 +111,11 @@ class ShoveEvRequest(BaseModel):
     fold_probability: float = Field(..., ge=0, le=1)
     pot_before_shove: float = Field(..., ge=0)
     shove_amount: float = Field(..., ge=0)
+    villain_already_in: float = Field(
+        default=0.0,
+        ge=0,
+        description="Quanto l'avversario ha già messo nel piatto in questo giro (l'importo che si dovrebbe chiamare): è già dentro pot_before_shove e non va contato due volte.",
+    )
 
 
 class ShoveEvResponse(BaseModel):

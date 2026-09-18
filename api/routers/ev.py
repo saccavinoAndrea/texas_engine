@@ -29,6 +29,7 @@ def post_shove_ev(request: ShoveEvRequest) -> ShoveEvResponse:
             fold_probability=request.fold_probability,
             pot_before_shove=request.pot_before_shove,
             shove_amount=request.shove_amount,
+            villain_already_in=request.villain_already_in,
         )
     except InvalidEvInputError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

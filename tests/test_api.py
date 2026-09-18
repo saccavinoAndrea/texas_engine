@@ -184,7 +184,8 @@ def test_table_metrics_endpoint():
     assert response.status_code == 200
     body = response.json()
     assert body["spr"] == pytest.approx(2.0)
-    assert body["mdf"] == pytest.approx(2 / 3)
+    # Piatto 100 comprensivo della puntata da 50 -> MDF = (100-50)/100
+    assert body["mdf"] == pytest.approx(0.5)
     assert body["max_implied_bet"] == pytest.approx(150.0)
 
 

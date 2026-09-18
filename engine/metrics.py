@@ -22,12 +22,26 @@ def calculate_spr(effective_stack: float, pot: float) -> float:
     return effective_stack / pot
 
 
-def calculate_mdf(pot_before_bet: float, bet_size: float) -> float:
-    if pot_before_bet < 0 or bet_size < 0:
+def calculate_mdf(pot_before_call: float, amount_to_call: float) -> float:
+    """Minimum Defense Frequency contro la puntata che si sta fronteggiando.
+
+    Per definizione, contro una puntata b in un piatto P bisogna continuare almeno
+    P / (P + b) delle volte perché un bluff sistematico non diventi automaticamente
+    profittevole. Il punto delicato è quale piatto: P è quello PRIMA della puntata
+    avversaria, mentre qui il piatto arriva come lo inserisce l'utente, cioè già
+    comprensivo della puntata da chiamare (la stessa convenzione usata da pot odds
+    ed EV). Tornando indietro al piatto precedente la formula si semplifica in
+    (piatto - puntata) / piatto: usare direttamente il piatto comprensivo
+    sovrastimerebbe l'MDF, per esempio dando 66,7% invece di 50% su una puntata
+    pari al piatto.
+    """
+    if pot_before_call < 0 or amount_to_call < 0:
         raise InvalidMetricsInputError("importi negativi non ammessi")
-    if bet_size == 0:
-        raise InvalidMetricsInputError("la size della puntata deve essere maggiore di zero per calcolare l'MDF")
-    return pot_before_bet / (pot_before_bet + bet_size)
+    if amount_to_call == 0:
+        raise InvalidMetricsInputError("serve una puntata da fronteggiare per calcolare l'MDF")
+    if amount_to_call > pot_before_call:
+        raise InvalidMetricsInputError("l'importo da chiamare non può superare il piatto, che lo comprende già")
+    return (pot_before_call - amount_to_call) / pot_before_call
 
 
 def calculate_max_implied_bet(effective_stack: float, amount_to_call: float) -> float:
