@@ -221,6 +221,7 @@
               <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Equity richiesta" data-bs-content="L'equity minima che ti serve per essere in pareggio secondo le sole pot odds: importo da chiamare / (piatto + importo da chiamare). Non tiene conto delle implied odds: se ne hai inserite, l'EV può risultare positivo anche con la tua equity sotto questa soglia, ed è proprio il senso delle implied odds.">i</button>
             </div>
             <div class="result-value" id="requiredEquity">-</div>
+            <div class="text-secondary small d-none" id="requiredEquityImplied"></div>
           </div>
         </div>
       </div>
@@ -246,7 +247,7 @@
           <div class="result-card">
             <div class="field-label justify-content-center">
               <div class="result-label mb-0">MDF</div>
-              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="MDF" data-bs-content="Minimum Defense Frequency: piatto / (piatto + puntata). La frequenza minima con cui dovresti continuare contro questa size per non essere sfruttabile da bluff sistematici.">i</button>
+              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="MDF" data-bs-content="Minimum Defense Frequency: la frequenza minima con cui dovresti continuare contro questa size per non essere sfruttabile da bluff sistematici. Sui manuali la formula è piatto / (piatto + puntata), dove il piatto è quello PRIMA della puntata avversaria; il campo Piatto di questa app la comprende già, quindi qui il conto è (piatto - puntata) / piatto, che dà lo stesso numero. Contro una puntata pari al piatto precedente, l'MDF è 50%.">i</button>
             </div>
             <div class="result-value" id="mdfValue">-</div>
           </div>
@@ -414,8 +415,12 @@
                   (preflop, o più avversari a mano ignota) viene stimata su migliaia di simulazioni casuali,
                   e in quel caso è accompagnata da un intervallo di confidenza al 95% che dice quanto fidarsi
                   della stima. Le <strong>pot odds</strong> ti dicono
-                  quanta equity ti serve per pareggiare una chiamata: piatto / (piatto + importo da
-                  chiamare). L'<strong>EV</strong> (valore atteso) traduce tutto in euro: se è positivo,
+                  quanta equity ti serve per pareggiare una chiamata: importo da chiamare / (piatto +
+                  importo da chiamare). Se chiami 50 in un piatto di 100, rischi 50 per vincerne 150,
+                  quindi ti serve un terzo delle volte. Quando inserisci delle implied odds la soglia
+                  scende, perché il piatto che punti a vincere è più grande: l'app mostra allora anche
+                  quella seconda soglia, ed è la stessa a cui risponde il verdetto.
+                  L'<strong>EV</strong> (valore atteso) traduce tutto in euro: se è positivo,
                   quella decisione è profittevole nel lungo periodo. Quando l'equity è stimata, anche l'EV
                   lo è: se il suo margine di errore comprende lo zero il verdetto diventa
                   <strong>"EV al limite"</strong> invece di positivo o negativo, perché il calcolo non ha
@@ -436,10 +441,14 @@
                   Lo <strong>SPR</strong> (stack-to-pot ratio: stack effettivo / piatto) misura quanto sei
                   "profondo" rispetto al piatto. Con SPR basso (sotto 3) le decisioni postflop tendono a
                   semplificarsi verso fold-o-all-in; con SPR alto c'è più spazio per manovrare su più
-                  strade. L'<strong>MDF</strong> (minimum defense frequency: piatto / (piatto + puntata))
-                  è la frequenza minima con cui, in teoria, dovresti continuare contro una puntata per non
-                  essere sfruttabile da bluff sistematici: è un concetto di equilibrio teorico, utile come
-                  riferimento, non una regola da seguire alla lettera in ogni mano reale.
+                  strade. L'<strong>MDF</strong> (minimum defense frequency) è la frequenza minima con cui,
+                  in teoria, dovresti continuare contro una puntata per non essere sfruttabile da bluff
+                  sistematici. Sui manuali si scrive piatto / (piatto + puntata), dove "piatto" è quello
+                  <em>prima</em> della puntata avversaria: contro una puntata pari al piatto, l'MDF è 50%.
+                  Qui il campo Piatto comprende già la puntata da chiamare, quindi il motore fa
+                  (piatto − puntata) / piatto, che è lo stesso conto scritto con l'altro piatto. Resta un
+                  concetto di equilibrio teorico, utile come riferimento, non una regola da seguire alla
+                  lettera in ogni mano reale.
                 </div>
               </div>
             </div>

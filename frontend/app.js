@@ -595,10 +595,20 @@ async function postJSON(url, payload) {
   return body;
 }
 
-function renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFutureBet) {
+function renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFutureBet, amountToCall) {
   document.getElementById("results").classList.remove("d-none");
   document.getElementById("heroEquity").textContent = `${(equity.hero_equity * 100).toFixed(1)}%`;
   document.getElementById("requiredEquity").textContent = `${potOdds.required_equity_percentage.toFixed(1)}%`;
+
+  // Con le implied odds la soglia di pareggio scende: mostrarla evita che questo
+  // riquadro e il verdetto EV sembrino in disaccordo.
+  const impliedThresholdEl = document.getElementById("requiredEquityImplied");
+  if (potOdds.required_equity_with_implied_percentage != null) {
+    impliedThresholdEl.textContent = `con implied: ${potOdds.required_equity_with_implied_percentage.toFixed(1)}%`;
+    impliedThresholdEl.classList.remove("d-none");
+  } else {
+    impliedThresholdEl.classList.add("d-none");
+  }
 
   const confidenceEl = document.getElementById("equityConfidence");
   if (equity.ci_low != null && equity.ci_high != null) {
@@ -648,10 +658,16 @@ function renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFuture
 
   const verdict = document.getElementById("verdict");
   const noteEl = document.getElementById("verdictNote");
-  const { text, uncertain, low, high } = buildVerdict(ev, shoveEv);
+  const { text, uncertain, neutral, low, high } = buildVerdict(ev, shoveEv, amountToCall);
 
   verdict.textContent = text;
-  if (uncertain) {
+  if (neutral) {
+    verdict.className = "alert text-center fw-bold alert-secondary";
+    noteEl.textContent =
+      "Non c'è nulla da chiamare, quindi non c'è una chiamata da giudicare: il valore in euro qui sopra " +
+      "è la tua quota del piatto, non il guadagno di una decisione. Restano utili equity, SPR e MDF.";
+    noteEl.classList.remove("d-none");
+  } else if (uncertain) {
     verdict.className = "alert text-center fw-bold alert-warning";
     noteEl.textContent =
       `Il margine di errore del campionamento va da ${low.toFixed(2)} a ${high.toFixed(2)}: comprende lo zero, ` +
@@ -676,9 +692,17 @@ function renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFuture
 // Un solo punto in cui si decide il verdetto, usato sia dalla schermata sia dal
 // riepilogo da copiare: se stessero in due posti diversi potrebbero divergere, e
 // il testo copiato direbbe "EV positivo" mentre lo schermo dice "al limite".
-function buildVerdict(ev, shoveEv) {
+function buildVerdict(ev, shoveEv, amountToCall) {
   const decision = shoveEv || ev;
   const label = shoveEv ? "shove" : "call";
+
+  // Senza nulla da chiamare non c'è alcuna chiamata da valutare: la formula
+  // dell'EV restituirebbe la tua quota del piatto (equity × piatto), che è un
+  // numero corretto ma non è l'EV di una decisione, perché l'alternativa non è
+  // foldare ma cambiare gratis. Chiamarlo "EV positivo (call)" sarebbe falso.
+  if (!shoveEv && !(amountToCall > 0)) {
+    return { text: "Nessuna chiamata da valutare", neutral: true, uncertain: false };
+  }
 
   // Quando l'equity è stimata (Monte Carlo) anche l'EV lo è. Se il suo intervallo
   // di confidenza attraversa lo zero, il segno non è stato stabilito dal calcolo:
@@ -697,14 +721,17 @@ function buildVerdict(ev, shoveEv) {
   };
 }
 
-function buildSummaryText(heroCards, board, numOpponents, equity, potOdds, ev, shoveEv, tableMetrics) {
+function buildSummaryText(heroCards, board, numOpponents, equity, potOdds, ev, shoveEv, tableMetrics, amountToCall) {
   const heroLabel = `${cardLabel(heroCards[0])} ${cardLabel(heroCards[1])}`;
   const boardLabel = board.length > 0 ? board.map(cardLabel).join(" ") : "preflop";
   const lines = [
     `${heroLabel} su ${boardLabel} (vs ${numOpponents} avversari)`,
     `Equity: ${(equity.hero_equity * 100).toFixed(1)}%` +
       (equity.ci_low != null ? ` (IC95%: ${(equity.ci_low * 100).toFixed(1)}-${(equity.ci_high * 100).toFixed(1)}%)` : "") +
-      ` | Richiesta: ${potOdds.required_equity_percentage.toFixed(1)}%`,
+      ` | Richiesta: ${potOdds.required_equity_percentage.toFixed(1)}%` +
+      (potOdds.required_equity_with_implied_percentage != null
+        ? ` (con implied: ${potOdds.required_equity_with_implied_percentage.toFixed(1)}%)`
+        : ""),
     `EV chiamata: ${ev.ev > 0 ? "+" : ""}${ev.ev.toFixed(2)}€` +
       (tableMetrics && tableMetrics.spr != null ? ` | SPR: ${tableMetrics.spr.toFixed(1)}` : "") +
       (tableMetrics && tableMetrics.mdf != null ? ` | MDF: ${(tableMetrics.mdf * 100).toFixed(1)}%` : ""),
@@ -712,7 +739,7 @@ function buildSummaryText(heroCards, board, numOpponents, equity, potOdds, ev, s
   if (shoveEv) {
     lines.push(`EV shove: ${shoveEv.ev > 0 ? "+" : ""}${shoveEv.ev.toFixed(2)}€`);
   }
-  lines.push(`Verdetto: ${buildVerdict(ev, shoveEv).text}`);
+  lines.push(`Verdetto: ${buildVerdict(ev, shoveEv, amountToCall).text}`);
   return lines.join("\n");
 }
 
@@ -829,7 +856,13 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
     villain_ranges: villainRanges,
     num_opponents: state.numOpponents,
   };
-  const potOddsPayload = { amount_to_call: amountToCall, pot_before_call: potBeforeCall };
+  const potOddsPayload = {
+    amount_to_call: amountToCall,
+    pot_before_call: potBeforeCall,
+    // Serve a mostrare accanto alle pot odds la soglia di pareggio effettiva:
+    // altrimenti l'equity richiesta e il verdetto EV raccontano cose diverse.
+    implied_future_bet: impliedFutureBet,
+  };
   const tableMetricsPayload = {
     effective_stack: effectiveStack,
     pot_before_call: potBeforeCall,
@@ -892,8 +925,10 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
       );
     }
     const [potOdds, tableMetrics, ev, shoveEv] = await Promise.all(requests);
-    renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFutureBet);
-    lastSummaryText = buildSummaryText([hero1, hero2], board, state.numOpponents, equity, potOdds, ev, shoveEv, tableMetrics);
+    renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFutureBet, amountToCall);
+    lastSummaryText = buildSummaryText(
+      [hero1, hero2], board, state.numOpponents, equity, potOdds, ev, shoveEv, tableMetrics, amountToCall
+    );
     pushHistoryEntry({
       time: new Date().toLocaleTimeString("it-IT"),
       heroCards: [hero1, hero2],

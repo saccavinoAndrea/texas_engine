@@ -37,7 +37,7 @@ Il repo include `render.yaml`: basta collegare il repo su Render e verrà creato
   - tutto il resto — preflop, 2+ avversari ignoti, range su un board ancora tutto da scoprire → Monte Carlo (iterazioni configurabili), con errore standard e intervallo di confidenza al 95% nella risposta
 
   Con più avversari a range, le assegnazioni di mani valide *insieme* (nessuna carta condivisa) vengono contate una volta sola e condivise fra enumerazione esatta e campionamento, così i due metodi lavorano sulla stessa distribuzione per costruzione. Range che non possono coesistere (es. tre avversari con solo `AA`) vengono respinti con un errore che lo dimostra, non con un campionamento che si arrende.
-- `POST /api/pot-odds` — equity minima richiesta per un call profittevole
+- `POST /api/pot-odds` — equity minima richiesta per un call profittevole. Con `implied_future_bet` restituisce anche `required_equity_with_implied`, la soglia di pareggio che tiene conto delle implied odds: è quella a cui risponde l'EV, e senza mostrarla i due numeri sembrano contraddirsi (equity sotto la soglia delle pot odds ma EV positivo)
 - `POST /api/ev` — EV di una chiamata data l'equity, il piatto e l'importo da chiamare; `implied_future_bet` opzionale per le implied odds stimate dall'utente
 - `POST /api/shove-ev` — EV di un all-in con fold equity (percentuale di fold stimata dall'utente, non calcolata dal motore)
 

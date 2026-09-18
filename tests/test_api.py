@@ -95,6 +95,26 @@ def test_pot_odds_endpoint():
     assert body["required_equity_percentage"] == pytest.approx(100 / 3)
 
 
+def test_pot_odds_endpoint_returns_implied_adjusted_threshold():
+    response = client.post(
+        "/api/pot-odds",
+        json={"amount_to_call": 50, "pot_before_call": 100, "implied_future_bet": 80},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["required_equity"] == pytest.approx(1 / 3)  # le pot odds pure non cambiano
+    assert body["required_equity_with_implied"] == pytest.approx(50 / 230)
+    assert body["required_equity_with_implied_percentage"] == pytest.approx(100 * 50 / 230)
+
+
+def test_pot_odds_endpoint_omits_implied_threshold_when_not_estimated():
+    """Senza implied odds la seconda soglia coinciderebbe con la prima: non va mostrata."""
+    response = client.post("/api/pot-odds", json={"amount_to_call": 50, "pot_before_call": 100})
+    body = response.json()
+    assert body["required_equity_with_implied"] is None
+    assert body["required_equity_with_implied_percentage"] is None
+
+
 def test_pot_odds_endpoint_rejects_negative():
     response = client.post("/api/pot-odds", json={"amount_to_call": -1, "pot_before_call": 100})
     assert response.status_code == 422
@@ -164,6 +184,24 @@ def test_shove_ev_endpoint_propagates_equity_confidence_interval():
     assert body["ev_low"] == pytest.approx(expected(0.38))
     assert body["ev_high"] == pytest.approx(expected(0.42))
     assert body["ev_low"] < body["ev"] < body["ev_high"]
+
+
+def test_ev_endpoint_rejects_inverted_equity_bounds():
+    """Estremi invertiti non farebbero fallire nulla, ma il controllo
+    sull'incertezza risulterebbe sempre falso: meglio respingerli."""
+    payload = {
+        "hero_equity": 0.34,
+        "hero_equity_low": 0.36,
+        "hero_equity_high": 0.32,
+        "amount_to_call": 50,
+        "pot_before_call": 100,
+    }
+    assert client.post("/api/ev", json=payload).status_code == 422
+
+
+def test_ev_endpoint_rejects_half_an_interval():
+    payload = {"hero_equity": 0.34, "hero_equity_low": 0.32, "amount_to_call": 50, "pot_before_call": 100}
+    assert client.post("/api/ev", json=payload).status_code == 422
 
 
 def test_ev_endpoint_rejects_equity_out_of_range():

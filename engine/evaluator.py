@@ -16,16 +16,24 @@ _evaluator = TreysEvaluator()
 _TREYS_BY_CARD = {card: TreysCard.new(str(card)) for card in full_deck()}
 
 
+def _rank(treys_board: list[int], hole_cards: list[Card]) -> int:
+    return _evaluator.evaluate(treys_board, [_TREYS_BY_CARD[c] for c in hole_cards])
+
+
 def hand_rank(hole_cards: list[Card], board: list[Card]) -> int:
     """Ritorna il rank treys della mano migliore a 5 carte (più basso = più forte)."""
-    return _evaluator.evaluate(
-        [_TREYS_BY_CARD[c] for c in board],
-        [_TREYS_BY_CARD[c] for c in hole_cards],
-    )
+    return _rank([_TREYS_BY_CARD[c] for c in board], hole_cards)
 
 
 def compare_hands(hole_cards_list: list[list[Card]], board: list[Card]) -> list[int]:
-    """Indici (0-based) delle mani vincenti; più di un indice in caso di split pot."""
-    ranks = [hand_rank(hole_cards, board) for hole_cards in hole_cards_list]
+    """Indici (0-based) delle mani vincenti; più di un indice in caso di split pot.
+
+    Il board si converte una volta sola e si riusa per tutti i giocatori: è lo
+    stesso per definizione, e questa è la funzione più calda dell'applicazione
+    (un Monte Carlo la chiama ventimila volte, una per ogni giocatore in mano).
+    Rifarne la conversione a ogni giocatore costava circa il 15% del tempo totale.
+    """
+    treys_board = [_TREYS_BY_CARD[c] for c in board]
+    ranks = [_rank(treys_board, hole_cards) for hole_cards in hole_cards_list]
     best = min(ranks)
     return [i for i, r in enumerate(ranks) if r == best]

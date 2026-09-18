@@ -2,11 +2,41 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, field_validator
+from typing import Self
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from engine.cards import Card, InvalidCardError
 from engine.equity import DEFAULT_ITERATIONS
 from engine.ranges import InvalidRangeError, hand_class_combos
+
+
+class _EquityBoundsMixin(BaseModel):
+    """Estremi dell'intervallo di confidenza sull'equity, comuni a EV e shove EV.
+
+    Vanno o entrambi o nessuno dei due, e in ordine: invertiti non farebbero
+    fallire nulla, ma il controllo "l'intervallo contiene lo zero" risulterebbe
+    sempre falso e il verdetto tornerebbe a dirsi certo dove non lo è.
+    """
+
+    hero_equity_low: float | None = Field(
+        default=None, ge=0, le=1, description="Estremo inferiore dell'IC 95% sull'equity (solo Monte Carlo)."
+    )
+    hero_equity_high: float | None = Field(
+        default=None, ge=0, le=1, description="Estremo superiore dell'IC 95% sull'equity (solo Monte Carlo)."
+    )
+
+    @model_validator(mode="after")
+    def _check_equity_bounds(self) -> Self:
+        if (self.hero_equity_low is None) != (self.hero_equity_high is None):
+            raise ValueError("hero_equity_low e hero_equity_high vanno forniti insieme")
+        if (
+            self.hero_equity_low is not None
+            and self.hero_equity_high is not None
+            and self.hero_equity_low > self.hero_equity_high
+        ):
+            raise ValueError("hero_equity_low non può superare hero_equity_high")
+        return self
 
 
 def _validate_card_code(code: str) -> str:
@@ -85,25 +115,29 @@ class EquityResponse(BaseModel):
 class PotOddsRequest(BaseModel):
     amount_to_call: float = Field(..., ge=0)
     pot_before_call: float = Field(..., ge=0)
+    implied_future_bet: float = Field(
+        default=0.0,
+        ge=0,
+        description="Stima manuale di puntate future incassate vincendo lo showdown: abbassa la soglia di pareggio.",
+    )
 
 
 class PotOddsResponse(BaseModel):
     required_equity: float
     required_equity_percentage: float
+    required_equity_with_implied: float | None = Field(
+        default=None,
+        description="Soglia di pareggio che tiene conto delle implied odds; null se non ne sono state indicate.",
+    )
+    required_equity_with_implied_percentage: float | None = None
 
 
-class EvRequest(BaseModel):
+class EvRequest(_EquityBoundsMixin):
     hero_equity: float = Field(..., ge=0, le=1)
     amount_to_call: float = Field(..., ge=0)
     pot_before_call: float = Field(..., ge=0)
     implied_future_bet: float = Field(
         default=0.0, ge=0, description="Stima manuale di puntate future vinte in caso di showdown vinto (implied odds)."
-    )
-    hero_equity_low: float | None = Field(
-        default=None, ge=0, le=1, description="Estremo inferiore dell'IC 95% sull'equity (solo Monte Carlo)."
-    )
-    hero_equity_high: float | None = Field(
-        default=None, ge=0, le=1, description="Estremo superiore dell'IC 95% sull'equity (solo Monte Carlo)."
     )
 
 
@@ -114,7 +148,7 @@ class EvResponse(BaseModel):
     ev_high: float | None = None
 
 
-class ShoveEvRequest(BaseModel):
+class ShoveEvRequest(_EquityBoundsMixin):
     hero_equity_if_called: float = Field(..., ge=0, le=1)
     fold_probability: float = Field(..., ge=0, le=1)
     pot_before_shove: float = Field(..., ge=0)
@@ -123,12 +157,6 @@ class ShoveEvRequest(BaseModel):
         default=0.0,
         ge=0,
         description="Quanto l'avversario ha già messo nel piatto in questo giro (l'importo che si dovrebbe chiamare): è già dentro pot_before_shove e non va contato due volte.",
-    )
-    hero_equity_low: float | None = Field(
-        default=None, ge=0, le=1, description="Estremo inferiore dell'IC 95% sull'equity (solo Monte Carlo)."
-    )
-    hero_equity_high: float | None = Field(
-        default=None, ge=0, le=1, description="Estremo superiore dell'IC 95% sull'equity (solo Monte Carlo)."
     )
 
 
