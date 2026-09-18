@@ -1,12 +1,12 @@
 const RANKS = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"];
 const SUITS = [
-  { code: "s", symbol: "♠", imageName: "spade" },
-  { code: "h", symbol: "♥", imageName: "heart" },
-  { code: "d", symbol: "♦", imageName: "diamond" },
-  { code: "c", symbol: "♣", imageName: "club" },
+  { code: "s", symbol: "♠", imageName: "spades" },
+  { code: "h", symbol: "♥", imageName: "hearts" },
+  { code: "d", symbol: "♦", imageName: "diamonds" },
+  { code: "c", symbol: "♣", imageName: "clubs" },
 ];
 const RANK_IMAGE_TOKEN = {
-  A: "1",
+  A: "ace",
   K: "king",
   Q: "queen",
   J: "jack",
@@ -23,7 +23,7 @@ const RANK_IMAGE_TOKEN = {
 
 function cardImageSrc(rank, suitCode) {
   const suit = SUITS.find((s) => s.code === suitCode);
-  return `/vendor/svg-cards/cards/${suit.imageName}_${RANK_IMAGE_TOKEN[rank]}.png`;
+  return `/vendor/classic-cards/cards/${RANK_IMAGE_TOKEN[rank]}_of_${suit.imageName}.png`;
 }
 
 const BOARD_ORDER = ["flop1", "flop2", "flop3", "turn", "river"];
