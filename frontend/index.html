@@ -117,6 +117,7 @@
           <input type="number" inputmode="decimal" class="form-control form-control-lg" id="potBeforeCall" placeholder="0" min="0" step="0.5">
           <button class="btn btn-outline-secondary" type="button" id="useBlindsBtn" title="Usa SB+BB come piatto iniziale">SB+BB</button>
         </div>
+        <div class="form-text" id="potBeforeCallBB"></div>
       </div>
       <div class="col-6">
         <div class="field-label">
@@ -124,6 +125,7 @@
           <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Da chiamare" data-bs-content="L'importo che devi mettere per pareggiare la puntata avversaria. Più è alto rispetto al piatto, più equity ti serve perché la chiamata sia profittevole.">i</button>
         </div>
         <input type="number" inputmode="decimal" class="form-control form-control-lg" id="amountToCall" placeholder="0" min="0" step="0.5">
+        <div class="form-text" id="amountToCallBB"></div>
       </div>
     </section>
 
@@ -142,10 +144,13 @@
       <div class="col-6">
         <div class="field-label">
           <label for="impliedFutureBet" class="form-label text-secondary text-uppercase small mb-0">Implied odds (€)</label>
-          <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Implied odds" data-bs-content="Una tua stima di quanto potresti vincere in più nei giri successivi se completi la mano. Viene sommato al piatto (pesato per la tua equity) nel calcolo dell'EV della chiamata: è una stima manuale tua, non calcolata dal motore.">i</button>
+          <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Implied odds" data-bs-content="Una tua stima di quanto potresti vincere in più nei giri successivi se completi la mano. Viene sommato al piatto (pesato per la tua equity) nel calcolo dell'EV della chiamata: è una stima manuale tua, il motore non la calcola perché dipende da come giocherà l'avversario nei prossimi giri. Il motore può però dirti il tetto massimo teorico, cioè quanto resta negli stack.">i</button>
         </div>
-        <input type="number" inputmode="decimal" class="form-control" id="impliedFutureBet" placeholder="0" min="0" step="0.5">
-        <div class="form-text">Puntate future stimate se vinci a showdown.</div>
+        <div class="input-group">
+          <input type="number" inputmode="decimal" class="form-control" id="impliedFutureBet" placeholder="0" min="0" step="0.5">
+          <button class="btn btn-outline-secondary" type="button" id="useMaxImpliedBtn" title="Usa il tetto teorico (stack residuo dopo la chiamata)">Max</button>
+        </div>
+        <div class="form-text" id="impliedMaxHint">Puntate future stimate se vinci a showdown.</div>
       </div>
     </section>
 
@@ -165,6 +170,7 @@
             <input type="number" inputmode="decimal" class="form-control" id="shoveAmount" placeholder="0" min="0" step="0.5">
             <button class="btn btn-outline-secondary" type="button" id="useBuyInBtn" title="Usa il buy-in come importo shove">Buy-in</button>
           </div>
+          <div class="form-text" id="shoveAmountBB"></div>
         </div>
         <div class="col-6">
           <div class="field-label">
@@ -211,6 +217,7 @@
           <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="EV della chiamata" data-bs-content="Il valore atteso in € della chiamata: equity × (piatto dopo la chiamata, incluse eventuali implied odds) − importo da chiamare. Positivo = chiamata profittevole nel lungo periodo.">i</button>
         </div>
         <div class="result-value" id="evValue">-</div>
+        <div class="text-warning small d-none" id="impliedWarning"></div>
       </div>
       <div class="row g-2 text-center mb-2 d-none" id="tableMetricsRow">
         <div class="col-6">
@@ -243,6 +250,20 @@
       <div class="text-secondary small text-center d-flex align-items-center justify-content-center gap-1" id="metaRow">
         <span id="meta"></span>
         <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Metodo di calcolo" data-bs-content="Monte Carlo: stima su tante simulazioni casuali (preflop/flop, o range). Enumerazione esatta: tutte le combinazioni residue una per una (turn/river senza range). Confronto diretto: mani già chiuse, nessuna carta da scoprire (river completo).">i</button>
+      </div>
+    </section>
+
+    <section class="mb-3">
+      <div class="field-label">
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#historyCollapse">
+          Storico sessione
+        </button>
+        <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Storico sessione" data-bs-content="Le mani che hai calcolato in questa sessione, solo per rivederle al volo. Non viene salvato da nessuna parte: si svuota ricaricando o chiudendo la pagina, coerente con il fatto che l'app non conserva le mani giocate.">i</button>
+      </div>
+      <div class="collapse mt-2" id="historyCollapse">
+        <div id="historyEmpty" class="text-secondary small">Nessuna mano calcolata ancora in questa sessione.</div>
+        <div id="historyList"></div>
+        <button type="button" id="clearHistoryBtn" class="btn btn-outline-danger btn-sm mt-1 d-none">Svuota storico</button>
       </div>
     </section>
   </div>

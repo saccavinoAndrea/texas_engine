@@ -26,6 +26,20 @@ function cardImageSrc(rank, suitCode) {
   return `/vendor/classic-cards/cards/${RANK_IMAGE_TOKEN[rank]}_of_${suit.imageName}.png`;
 }
 
+function cardLabel(code) {
+  if (!code) return "";
+  const suit = SUITS.find((s) => s.code === code[1]);
+  return `${code[0]}${suit.symbol}`;
+}
+
+function escapeAttr(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 const BOARD_ORDER = ["flop1", "flop2", "flop3", "turn", "river"];
 const MAX_OPPONENTS = 8;
 
@@ -58,15 +72,26 @@ function initialVillainRanges() {
   return ranges;
 }
 
+function initialVillainNotes() {
+  const notes = {};
+  for (let i = 1; i <= MAX_OPPONENTS; i++) notes[i] = "";
+  return notes;
+}
+
 const state = {
   slots: initialSlots(),
   villainMode: initialVillainModes(), // "unknown" | "known" | "range"
   villainRanges: initialVillainRanges(),
+  villainNotes: initialVillainNotes(),
   numOpponents: 1,
   activeSlot: null,
   activeRangeVillain: null,
   positions: { dealer: "hero", sb: "hero", bb: "villain1" },
+  // Storico della sessione corrente: solo in memoria, mai persistito (si perde
+  // ricaricando la pagina), coerente con il vincolo "nessuna mano salvata".
+  history: [],
 };
+const MAX_HISTORY_ENTRIES = 15;
 
 const pickerModalEl = document.getElementById("cardPickerModal");
 const pickerModal = new bootstrap.Modal(pickerModalEl);
@@ -197,6 +222,8 @@ function renderVillains() {
           <div class="btn-group" role="group">${modeButtons}</div>
         </div>
         ${content}
+        <input type="text" class="form-control form-control-sm mt-2 villain-note-input" data-villain="${i}"
+               placeholder="Note libere (es. aggressivo, bluffa spesso)" value="${escapeAttr(state.villainNotes[i] || "")}">
       </div>
     `;
   }
@@ -208,6 +235,14 @@ function renderVillains() {
     }
   }
 }
+
+villainsContainer.addEventListener("input", (e) => {
+  const noteInput = e.target.closest(".villain-note-input");
+  if (!noteInput) return;
+  // Aggiorna solo lo stato, senza ri-renderizzare: un re-render perderebbe
+  // il focus e la posizione del cursore mentre l'utente sta ancora scrivendo.
+  state.villainNotes[parseInt(noteInput.dataset.villain, 10)] = noteInput.value;
+});
 
 villainsContainer.addEventListener("click", (e) => {
   const modeBtn = e.target.closest(".villain-mode-btn");
@@ -356,6 +391,7 @@ document.getElementById("tableSize").addEventListener("change", (e) => {
   for (let i = state.numOpponents + 1; i <= MAX_OPPONENTS; i++) {
     state.villainMode[i] = "unknown";
     state.villainRanges[i] = [];
+    state.villainNotes[i] = "";
     state.slots[`villain${i}_1`] = null;
     state.slots[`villain${i}_2`] = null;
   }
@@ -367,7 +403,30 @@ document.getElementById("useBlindsBtn").addEventListener("click", () => {
   const sb = parseFloat(document.getElementById("smallBlind").value || "0");
   const bb = parseFloat(document.getElementById("bigBlind").value || "0");
   document.getElementById("potBeforeCall").value = (sb + bb).toFixed(2);
+  updateBBHints();
 });
+
+// Conversione rapida €->BB: in cash game si ragiona spesso in big blind piuttosto
+// che in valuta assoluta, mostrata come semplice testo informativo sotto ogni campo.
+const BB_HINT_FIELDS = [
+  { inputId: "potBeforeCall", hintId: "potBeforeCallBB" },
+  { inputId: "amountToCall", hintId: "amountToCallBB" },
+  { inputId: "shoveAmount", hintId: "shoveAmountBB" },
+];
+
+function updateBBHints() {
+  const bb = parseFloat(document.getElementById("bigBlind").value || "0");
+  BB_HINT_FIELDS.forEach(({ inputId, hintId }) => {
+    const amount = parseFloat(document.getElementById(inputId).value || "0");
+    const hintEl = document.getElementById(hintId);
+    hintEl.textContent = bb > 0 && amount > 0 ? `= ${(amount / bb).toFixed(1)} BB` : "";
+  });
+}
+
+BB_HINT_FIELDS.forEach(({ inputId }) => {
+  document.getElementById(inputId).addEventListener("input", updateBBHints);
+});
+document.getElementById("bigBlind").addEventListener("input", updateBBHints);
 
 document.getElementById("useBuyInBtn").addEventListener("click", () => {
   const buyIn = parseFloat(document.getElementById("buyIn").value || "0");
@@ -377,6 +436,34 @@ document.getElementById("useBuyInBtn").addEventListener("click", () => {
 document.getElementById("useBuyInStackBtn").addEventListener("click", () => {
   const buyIn = parseFloat(document.getElementById("buyIn").value || "0");
   document.getElementById("effectiveStack").value = buyIn.toFixed(2);
+  updateImpliedMaxHint();
+});
+
+// Tetto teorico per le implied odds: non è una previsione di quanto pagherà
+// l'avversario (dipenderebbe dal suo comportamento futuro, terreno di un
+// solver), solo il vincolo fisico "non puoi vincere più di quanto resta negli
+// stack". Rispecchia calculate_max_implied_bet in engine/metrics.py.
+function maxImpliedBet() {
+  const effectiveStack = parseFloat(document.getElementById("effectiveStack").value || "0");
+  const amountToCall = parseFloat(document.getElementById("amountToCall").value || "0");
+  return Math.max(0, effectiveStack - amountToCall);
+}
+
+function updateImpliedMaxHint() {
+  const effectiveStack = parseFloat(document.getElementById("effectiveStack").value || "0");
+  const hintEl = document.getElementById("impliedMaxHint");
+  if (effectiveStack > 0) {
+    hintEl.textContent = `Max teorico: €${maxImpliedBet().toFixed(2)} (stack residuo dopo la chiamata)`;
+  } else {
+    hintEl.textContent = "Puntate future stimate se vinci a showdown.";
+  }
+}
+
+document.getElementById("effectiveStack").addEventListener("input", updateImpliedMaxHint);
+document.getElementById("amountToCall").addEventListener("input", updateImpliedMaxHint);
+
+document.getElementById("useMaxImpliedBtn").addEventListener("click", () => {
+  document.getElementById("impliedFutureBet").value = maxImpliedBet().toFixed(2);
 });
 
 document.getElementById("enableShove").addEventListener("change", (e) => {
@@ -458,7 +545,7 @@ async function postJSON(url, payload) {
   return body;
 }
 
-function renderResults(equity, potOdds, ev, shoveEv, tableMetrics) {
+function renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFutureBet) {
   document.getElementById("results").classList.remove("d-none");
   document.getElementById("heroEquity").textContent = `${(equity.hero_equity * 100).toFixed(1)}%`;
   document.getElementById("requiredEquity").textContent = `${potOdds.required_equity_percentage.toFixed(1)}%`;
@@ -487,6 +574,14 @@ function renderResults(equity, potOdds, ev, shoveEv, tableMetrics) {
   evEl.classList.toggle("text-success", ev.ev > 0);
   evEl.classList.toggle("text-danger", ev.ev < 0);
 
+  const impliedWarningEl = document.getElementById("impliedWarning");
+  if (tableMetrics && impliedFutureBet > tableMetrics.max_implied_bet + 0.01) {
+    impliedWarningEl.textContent = `Le implied odds inserite (€${impliedFutureBet.toFixed(2)}) superano il tetto teorico di €${tableMetrics.max_implied_bet.toFixed(2)}: l'EV potrebbe essere ottimistico.`;
+    impliedWarningEl.classList.remove("d-none");
+  } else {
+    impliedWarningEl.classList.add("d-none");
+  }
+
   const shoveCard = document.getElementById("shoveResultCard");
   if (shoveEv) {
     shoveCard.classList.remove("d-none");
@@ -514,6 +609,54 @@ function renderResults(equity, potOdds, ev, shoveEv, tableMetrics) {
     `${methodLabels[equity.method] || equity.method} · ${equity.trials} scenari` +
     (equity.tie_probability > 0 ? ` · split ${(equity.tie_probability * 100).toFixed(1)}%` : "");
 }
+
+function renderHistory() {
+  const listEl = document.getElementById("historyList");
+  const emptyEl = document.getElementById("historyEmpty");
+  const clearBtn = document.getElementById("clearHistoryBtn");
+
+  if (state.history.length === 0) {
+    listEl.innerHTML = "";
+    emptyEl.classList.remove("d-none");
+    clearBtn.classList.add("d-none");
+    return;
+  }
+
+  emptyEl.classList.add("d-none");
+  clearBtn.classList.remove("d-none");
+  listEl.innerHTML = state.history
+    .map((entry) => {
+      const evClass = entry.ev > 0 ? "text-success" : entry.ev < 0 ? "text-danger" : "";
+      const evSign = entry.ev > 0 ? "+" : "";
+      const boardLabel = entry.board.length > 0 ? entry.board.map(cardLabel).join(" ") : "preflop";
+      return `
+        <div class="history-item">
+          <div>
+            <div class="fw-semibold">${cardLabel(entry.heroCards[0])} ${cardLabel(entry.heroCards[1])} · ${boardLabel}</div>
+            <div class="text-secondary" style="font-size: 0.75rem;">${entry.time} · vs ${entry.numOpponents} avversari</div>
+          </div>
+          <div class="text-end">
+            <div>${(entry.heroEquity * 100).toFixed(1)}%</div>
+            <div class="${evClass}">${evSign}${entry.ev.toFixed(2)}€</div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function pushHistoryEntry(entry) {
+  state.history.unshift(entry);
+  if (state.history.length > MAX_HISTORY_ENTRIES) {
+    state.history.length = MAX_HISTORY_ENTRIES;
+  }
+  renderHistory();
+}
+
+document.getElementById("clearHistoryBtn").addEventListener("click", () => {
+  state.history = [];
+  renderHistory();
+});
 
 document.getElementById("calcolaBtn").addEventListener("click", async () => {
   hideError();
@@ -596,7 +739,15 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
       );
     }
     const [potOdds, tableMetrics, ev, shoveEv] = await Promise.all(requests);
-    renderResults(equity, potOdds, ev, shoveEv, tableMetrics);
+    renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFutureBet);
+    pushHistoryEntry({
+      time: new Date().toLocaleTimeString("it-IT"),
+      heroCards: [hero1, hero2],
+      board,
+      numOpponents: state.numOpponents,
+      heroEquity: equity.hero_equity,
+      ev: shoveEv ? shoveEv.ev : ev.ev,
+    });
   } catch (err) {
     showError(err.message);
   } finally {
@@ -608,6 +759,9 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
 renderAllSlots();
 renderVillains();
 renderPositions();
+renderHistory();
+updateBBHints();
+updateImpliedMaxHint();
 
 // Icone "i" informative: popover al tocco (trigger "focus" invece di "hover",
 // così funzionano anche su smartphone) che si chiudono toccando altrove.

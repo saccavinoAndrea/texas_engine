@@ -1,6 +1,11 @@
 from fastapi import APIRouter
 
-from engine.metrics import InvalidMetricsInputError, calculate_mdf, calculate_spr
+from engine.metrics import (
+    InvalidMetricsInputError,
+    calculate_max_implied_bet,
+    calculate_mdf,
+    calculate_spr,
+)
 from api.schemas import TableMetricsRequest, TableMetricsResponse
 
 router = APIRouter(prefix="/api", tags=["metrics"])
@@ -23,4 +28,6 @@ def post_table_metrics(request: TableMetricsRequest) -> TableMetricsResponse:
     except InvalidMetricsInputError:
         pass
 
-    return TableMetricsResponse(spr=spr, mdf=mdf)
+    max_implied_bet = calculate_max_implied_bet(request.effective_stack, request.amount_to_call)
+
+    return TableMetricsResponse(spr=spr, mdf=mdf, max_implied_bet=max_implied_bet)

@@ -28,3 +28,17 @@ def calculate_mdf(pot_before_bet: float, bet_size: float) -> float:
     if bet_size == 0:
         raise InvalidMetricsInputError("la size della puntata deve essere maggiore di zero per calcolare l'MDF")
     return pot_before_bet / (pot_before_bet + bet_size)
+
+
+def calculate_max_implied_bet(effective_stack: float, amount_to_call: float) -> float:
+    """Tetto teorico per una stima di implied odds: quanto resta nello stack
+    effettivo dopo aver chiamato.
+
+    Non è una previsione di quanto l'avversario pagherà davvero nei giri
+    successivi (dipenderebbe dal suo comportamento futuro, terreno di un
+    solver): è solo il vincolo fisico imposto dagli stack, utile per tarare
+    una stima manuale realistica invece che arbitraria.
+    """
+    if effective_stack < 0 or amount_to_call < 0:
+        raise InvalidMetricsInputError("importi negativi non ammessi")
+    return max(0.0, effective_stack - amount_to_call)

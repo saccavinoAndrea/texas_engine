@@ -127,6 +127,7 @@ class TableMetricsRequest(BaseModel):
 class TableMetricsResponse(BaseModel):
     spr: float | None
     mdf: float | None
+    max_implied_bet: float
 
 
 class RangeComboCountRequest(BaseModel):

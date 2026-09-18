@@ -142,3 +142,19 @@ body {
 .popover {
   max-width: 260px;
 }
+
+.history-item {
+  background-color: #1c2128;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.villain-note-input::placeholder {
+  font-size: 0.8rem;
+}

@@ -185,6 +185,7 @@ def test_table_metrics_endpoint():
     body = response.json()
     assert body["spr"] == pytest.approx(2.0)
     assert body["mdf"] == pytest.approx(2 / 3)
+    assert body["max_implied_bet"] == pytest.approx(150.0)
 
 
 def test_table_metrics_endpoint_degrades_gracefully_when_pot_is_zero():
@@ -196,6 +197,7 @@ def test_table_metrics_endpoint_degrades_gracefully_when_pot_is_zero():
     body = response.json()
     assert body["spr"] is None
     assert body["mdf"] is None
+    assert body["max_implied_bet"] == pytest.approx(200.0)
 
 
 def test_range_combo_count_endpoint():
