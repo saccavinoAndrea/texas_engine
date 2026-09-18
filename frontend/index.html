@@ -13,7 +13,11 @@
 </head>
 <body>
   <div class="container-fluid px-2 py-2" style="max-width: 480px;">
-    <h1 class="h5 text-center mb-3">Texas Engine</h1>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <span style="width: 32px;"></span>
+      <h1 class="h5 text-center mb-0">Texas Engine</h1>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#guideModal">Guida</button>
+    </div>
 
     <section class="mb-3">
       <button class="btn btn-outline-secondary btn-sm w-100" type="button" data-bs-toggle="collapse" data-bs-target="#tableConfigCollapse">
@@ -96,6 +100,7 @@
       </div>
       <div id="villainsContainer"></div>
       <div class="form-text">Per ogni avversario scegli: ignoto/random, carte note, oppure un range di mani che ritieni plausibile.</div>
+      <div id="villainConsistencyWarning" class="alert alert-warning small py-2 mt-2 d-none" role="alert"></div>
     </section>
 
     <section class="mb-3">
@@ -125,6 +130,10 @@
           <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Da chiamare" data-bs-content="L'importo che devi mettere per pareggiare la puntata avversaria. Più è alto rispetto al piatto, più equity ti serve perché la chiamata sia profittevole.">i</button>
         </div>
         <input type="number" inputmode="decimal" class="form-control form-control-lg" id="amountToCall" placeholder="0" min="0" step="0.5">
+        <div class="d-flex gap-1 mt-1">
+          <button class="btn btn-outline-secondary btn-sm flex-fill" type="button" id="halveCallBtn" title="Dimezza l'importo">÷2</button>
+          <button class="btn btn-outline-secondary btn-sm flex-fill" type="button" id="doubleCallBtn" title="Raddoppia l'importo">×2</button>
+        </div>
         <div class="form-text" id="amountToCallBB"></div>
       </div>
     </section>
@@ -169,6 +178,10 @@
           <div class="input-group">
             <input type="number" inputmode="decimal" class="form-control" id="shoveAmount" placeholder="0" min="0" step="0.5">
             <button class="btn btn-outline-secondary" type="button" id="useBuyInBtn" title="Usa il buy-in come importo shove">Buy-in</button>
+          </div>
+          <div class="d-flex gap-1 mt-1">
+            <button class="btn btn-outline-secondary btn-sm flex-fill" type="button" id="halveShoveBtn" title="Dimezza l'importo">÷2</button>
+            <button class="btn btn-outline-secondary btn-sm flex-fill" type="button" id="doubleShoveBtn" title="Raddoppia l'importo">×2</button>
           </div>
           <div class="form-text" id="shoveAmountBB"></div>
         </div>
@@ -251,6 +264,9 @@
         <span id="meta"></span>
         <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Metodo di calcolo" data-bs-content="Monte Carlo: stima su tante simulazioni casuali (preflop/flop, o range). Enumerazione esatta: tutte le combinazioni residue una per una (turn/river senza range). Confronto diretto: mani già chiuse, nessuna carta da scoprire (river completo).">i</button>
       </div>
+      <div class="d-grid mt-2">
+        <button type="button" id="copySummaryBtn" class="btn btn-outline-light btn-sm">Copia riepilogo</button>
+      </div>
     </section>
 
     <section class="mb-3">
@@ -302,6 +318,163 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-danger" id="clearRangeBtn">Svuota range</button>
           <button type="button" class="btn btn-success" data-bs-dismiss="modal">Fatto</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal guida rapida -->
+  <div class="modal" tabindex="-1" id="guideModal">
+    <div class="modal-dialog modal-fullscreen-sm-down modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Guida rapida</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="accordion" id="guideAccordion">
+
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#guide1">
+                  Nozioni base del cash game
+                </button>
+              </h2>
+              <div id="guide1" class="accordion-collapse collapse show" data-bs-parent="#guideAccordion">
+                <div class="accordion-body small">
+                  Ogni mano ha un <strong>dealer</strong> (bottone), a cui seguono in senso orario lo
+                  <strong>small blind</strong> (SB) e il <strong>big blind</strong> (BB): due puntate
+                  obbligatorie che formano il piatto iniziale. I giri di puntata sono, in ordine:
+                  <strong>preflop</strong> (solo le tue 2 carte), <strong>flop</strong> (3 carte comuni),
+                  <strong>turn</strong> (4ª carta) e <strong>river</strong> (5ª e ultima). Se si arriva
+                  all'ultimo giro senza che tutti tranne uno abbiano foldato, si va a <strong>showdown</strong>:
+                  vince chi ha la mano più forte tra le proprie 2 carte e le 5 comuni.
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#guide2">
+                  Classifica delle mani (dalla più forte)
+                </button>
+              </h2>
+              <div id="guide2" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
+                <div class="accordion-body small">
+                  <ol class="mb-0 ps-3">
+                    <li>Scala reale (scala dello stesso seme fino all'asso)</li>
+                    <li>Poker (4 carte uguali)</li>
+                    <li>Full (tris + coppia)</li>
+                    <li>Colore (5 carte dello stesso seme)</li>
+                    <li>Scala (5 carte in sequenza, semi misti)</li>
+                    <li>Tris (3 carte uguali)</li>
+                    <li>Doppia coppia</li>
+                    <li>Coppia</li>
+                    <li>Carta alta</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#guide3">
+                  Notazione delle mani e dei range (AA, AKs, AKo...)
+                </button>
+              </h2>
+              <div id="guide3" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
+                <div class="accordion-body small">
+                  Una classe di mano indica ranghi e, se diversi, se sono dello stesso seme.
+                  <strong>AA</strong> è una coppia (6 combinazioni concrete di carte). <strong>AKs</strong>
+                  significa Asso e Re dello <em>stesso seme</em> ("suited", 4 combinazioni).
+                  <strong>AKo</strong> significa Asso e Re di seme <em>diverso</em> ("offsuit", 12
+                  combinazioni). Un range è semplicemente un insieme di queste classi (es. "apre con
+                  99+, AJs+, KQs"): è sempre una tua stima soggettiva sull'avversario, il motore la
+                  trasforma in combinazioni concrete e la usa per calcolare l'equity, ma non la
+                  suggerisce né la corregge lui.
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#guide4">
+                  Equity, pot odds ed EV
+                </button>
+              </h2>
+              <div id="guide4" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
+                <div class="accordion-body small">
+                  L'<strong>equity</strong> è la probabilità che la tua mano vinca (o splitti) a showdown.
+                  Su preflop/flop viene stimata con migliaia di simulazioni casuali (Monte Carlo, con un
+                  intervallo di confidenza al 95% a corredo); su turn/river con mani chiuse viene calcolata
+                  esattamente enumerando tutte le carte residue. Le <strong>pot odds</strong> ti dicono
+                  quanta equity ti serve per pareggiare una chiamata: piatto / (piatto + importo da
+                  chiamare). L'<strong>EV</strong> (valore atteso) traduce tutto in euro: se è positivo,
+                  quella decisione è profittevole nel lungo periodo.
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#guide5">
+                  SPR e MDF
+                </button>
+              </h2>
+              <div id="guide5" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
+                <div class="accordion-body small">
+                  Lo <strong>SPR</strong> (stack-to-pot ratio: stack effettivo / piatto) misura quanto sei
+                  "profondo" rispetto al piatto. Con SPR basso (sotto 3) le decisioni postflop tendono a
+                  semplificarsi verso fold-o-all-in; con SPR alto c'è più spazio per manovrare su più
+                  strade. L'<strong>MDF</strong> (minimum defense frequency: piatto / (piatto + puntata))
+                  è la frequenza minima con cui, in teoria, dovresti continuare contro una puntata per non
+                  essere sfruttabile da bluff sistematici: è un concetto di equilibrio teorico, utile come
+                  riferimento, non una regola da seguire alla lettera in ogni mano reale.
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#guide6">
+                  Fold equity, shove e implied odds
+                </button>
+              </h2>
+              <div id="guide6" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
+                <div class="accordion-body small">
+                  La <strong>fold equity</strong> è il valore che guadagni quando un avversario folda
+                  invece di giocare la mano fino in fondo: nella simulazione shove la stimi tu (una lettura
+                  sull'avversario), il motore non la calcola. Le <strong>implied odds</strong> sono quanto
+                  potresti vincere in più nei giri successivi se completi la mano: dipendono da come
+                  giocherà l'avversario in futuro, quindi restano una tua stima manuale. Il motore può
+                  però darti un tetto teorico (quanto resta negli stack dopo la chiamata): non è una
+                  previsione, solo un limite fisico oltre il quale la tua stima non ha più senso.
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion-item">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#guide7">
+                  Cosa NON fa questo motore
+                </button>
+              </h2>
+              <div id="guide7" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
+                <div class="accordion-body small">
+                  Texas Engine non è un solver GTO: non calcola strategie ottimali, non ti dice come
+                  giocherà l'avversario né quanto spesso dovrebbe foldare/bluffare. Range, fold %, implied
+                  odds e note sugli avversari sono sempre stime che inserisci tu; il motore fa solo
+                  combinatoria (equity, combo residue) e aritmetica (pot odds, EV, SPR, MDF) su numeri
+                  reali. Inoltre non salva nessuna mano da nessuna parte: lo storico sessione è solo in
+                  memoria e sparisce ricaricando la pagina.
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-success" data-bs-dismiss="modal">Chiudi</button>
         </div>
       </div>
     </div>

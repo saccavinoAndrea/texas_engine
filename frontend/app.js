@@ -92,6 +92,7 @@ const state = {
   history: [],
 };
 const MAX_HISTORY_ENTRIES = 15;
+let lastSummaryText = "";
 
 const pickerModalEl = document.getElementById("cardPickerModal");
 const pickerModal = new bootstrap.Modal(pickerModalEl);
@@ -233,6 +234,24 @@ function renderVillains() {
       renderSlot(`villain${i}_1`);
       renderSlot(`villain${i}_2`);
     }
+  }
+  updateVillainConsistencyWarning();
+}
+
+// Promemoria (non bloccante): se hai personalizzato solo alcuni avversari,
+// facile dimenticare gli altri quando il tavolo è pieno.
+function updateVillainConsistencyWarning() {
+  const warningEl = document.getElementById("villainConsistencyWarning");
+  let customized = 0;
+  for (let i = 1; i <= state.numOpponents; i++) {
+    if (state.villainMode[i] !== "unknown") customized++;
+  }
+  if (customized > 0 && customized < state.numOpponents) {
+    const remaining = state.numOpponents - customized;
+    warningEl.textContent = `Hai impostato carte/range per ${customized} avversari su ${state.numOpponents}: gli altri ${remaining} restano a mano ignota/casuale. Verifica che sia corretto prima di calcolare.`;
+    warningEl.classList.remove("d-none");
+  } else {
+    warningEl.classList.add("d-none");
   }
 }
 
@@ -405,6 +424,21 @@ document.getElementById("useBlindsBtn").addEventListener("click", () => {
   document.getElementById("potBeforeCall").value = (sb + bb).toFixed(2);
   updateBBHints();
 });
+
+// Scorciatoie ÷2/×2: utili quando si ragiona per size relative alla puntata
+// avversaria ("e se puntasse il doppio?") senza dover ricalcolare a mano.
+function scaleField(inputId, factor) {
+  const input = document.getElementById(inputId);
+  const current = parseFloat(input.value || "0");
+  input.value = (current * factor).toFixed(2);
+  updateBBHints();
+  updateImpliedMaxHint();
+}
+
+document.getElementById("halveCallBtn").addEventListener("click", () => scaleField("amountToCall", 0.5));
+document.getElementById("doubleCallBtn").addEventListener("click", () => scaleField("amountToCall", 2));
+document.getElementById("halveShoveBtn").addEventListener("click", () => scaleField("shoveAmount", 0.5));
+document.getElementById("doubleShoveBtn").addEventListener("click", () => scaleField("shoveAmount", 2));
 
 // Conversione rapida €->BB: in cash game si ragiona spesso in big blind piuttosto
 // che in valuta assoluta, mostrata come semplice testo informativo sotto ogni campo.
@@ -610,6 +644,58 @@ function renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFuture
     (equity.tie_probability > 0 ? ` · split ${(equity.tie_probability * 100).toFixed(1)}%` : "");
 }
 
+function buildSummaryText(heroCards, board, numOpponents, equity, potOdds, ev, shoveEv, tableMetrics) {
+  const heroLabel = `${cardLabel(heroCards[0])} ${cardLabel(heroCards[1])}`;
+  const boardLabel = board.length > 0 ? board.map(cardLabel).join(" ") : "preflop";
+  const lines = [
+    `${heroLabel} su ${boardLabel} (vs ${numOpponents} avversari)`,
+    `Equity: ${(equity.hero_equity * 100).toFixed(1)}%` +
+      (equity.ci_low != null ? ` (IC95%: ${(equity.ci_low * 100).toFixed(1)}-${(equity.ci_high * 100).toFixed(1)}%)` : "") +
+      ` | Richiesta: ${potOdds.required_equity_percentage.toFixed(1)}%`,
+    `EV chiamata: ${ev.ev > 0 ? "+" : ""}${ev.ev.toFixed(2)}€` +
+      (tableMetrics && tableMetrics.spr != null ? ` | SPR: ${tableMetrics.spr.toFixed(1)}` : "") +
+      (tableMetrics && tableMetrics.mdf != null ? ` | MDF: ${(tableMetrics.mdf * 100).toFixed(1)}%` : ""),
+  ];
+  if (shoveEv) {
+    lines.push(`EV shove: ${shoveEv.ev > 0 ? "+" : ""}${shoveEv.ev.toFixed(2)}€`);
+  }
+  const verdictLabel = shoveEv ? "shove" : "call";
+  const profitable = shoveEv ? shoveEv.profitable : ev.profitable;
+  lines.push(`Verdetto: EV ${profitable ? "positivo" : "negativo"} (${verdictLabel})`);
+  return lines.join("\n");
+}
+
+async function copyToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  // Fallback per contesti non sicuri (es. accesso via IP in LAN senza HTTPS)
+  // dove l'API Clipboard moderna non è disponibile.
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
+document.getElementById("copySummaryBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("copySummaryBtn");
+  try {
+    await copyToClipboard(lastSummaryText);
+    const originalLabel = btn.textContent;
+    btn.textContent = "Copiato!";
+    setTimeout(() => {
+      btn.textContent = originalLabel;
+    }, 1500);
+  } catch (err) {
+    showError("Impossibile copiare negli appunti su questo browser.");
+  }
+});
+
 function renderHistory() {
   const listEl = document.getElementById("historyList");
   const emptyEl = document.getElementById("historyEmpty");
@@ -740,6 +826,7 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
     }
     const [potOdds, tableMetrics, ev, shoveEv] = await Promise.all(requests);
     renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFutureBet);
+    lastSummaryText = buildSummaryText([hero1, hero2], board, state.numOpponents, equity, potOdds, ev, shoveEv, tableMetrics);
     pushHistoryEntry({
       time: new Date().toLocaleTimeString("it-IT"),
       heroCards: [hero1, hero2],
