@@ -5,9 +5,30 @@ Comandi per eseguire Texas Engine in locale: in fase di sviluppo/test da PC, e p
 ## Requisiti
 
 - Python 3.11+
-- [Poetry](https://python-poetry.org/) installato (`pip install poetry` se non l'hai già)
+- [Poetry](https://python-poetry.org/) installato
 
 ## 1. Setup iniziale (una tantum)
+
+### Installare Poetry
+
+```powershell
+python -m pip install --user poetry
+```
+
+**Nota Windows — "poetry non riconosciuto" dopo l'installazione**: `pip install --user` installa `poetry.exe` in una cartella (tipicamente `%APPDATA%\Python\Python3XX\Scripts`) che di norma **non è già nel PATH**. Se dopo l'installazione il comando `poetry` non viene riconosciuto:
+
+1. Aggiungi la cartella al PATH utente (una tantum):
+   ```powershell
+   $scriptsDir = "$env:APPDATA\Python\Python312\Scripts"  # adatta la versione di Python se diversa
+   $currentUserPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+   [Environment]::SetEnvironmentVariable("PATH", "$currentUserPath;$scriptsDir", "User")
+   ```
+2. **Chiudi e riapri il terminale** (o riavvia VS Code): Windows scrive il PATH nel registro, ma i terminali già aperti non lo rileggono finché non vengono riavviati.
+3. Verifica con `poetry --version`.
+
+Se preferisci non toccare il PATH, puoi sempre invocare Poetry con il percorso completo: `& "$env:APPDATA\Python\Python312\Scripts\poetry.exe" <comando>`.
+
+### Installare le dipendenze del progetto
 
 ```bash
 cd texas_engine
