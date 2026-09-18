@@ -647,10 +647,21 @@ function renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFuture
   }
 
   const verdict = document.getElementById("verdict");
-  const profitable = shoveEv ? shoveEv.profitable : ev.profitable;
-  const verdictLabel = shoveEv ? "shove" : "call";
-  verdict.textContent = profitable ? `EV positivo (${verdictLabel})` : `EV negativo (${verdictLabel})`;
-  verdict.className = `alert text-center fw-bold ${profitable ? "alert-success" : "alert-danger"}`;
+  const noteEl = document.getElementById("verdictNote");
+  const { text, uncertain, low, high } = buildVerdict(ev, shoveEv);
+
+  verdict.textContent = text;
+  if (uncertain) {
+    verdict.className = "alert text-center fw-bold alert-warning";
+    noteEl.textContent =
+      `Il margine di errore del campionamento va da ${low.toFixed(2)} a ${high.toFixed(2)}: comprende lo zero, ` +
+      "quindi la decisione non è determinata dal calcolo. A deciderla sono lettura, posizione e tendenze dell'avversario.";
+    noteEl.classList.remove("d-none");
+  } else {
+    const profitable = (shoveEv || ev).profitable;
+    verdict.className = `alert text-center fw-bold ${profitable ? "alert-success" : "alert-danger"}`;
+    noteEl.classList.add("d-none");
+  }
 
   const methodLabels = {
     monte_carlo: "Monte Carlo",
@@ -660,6 +671,30 @@ function renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFuture
   document.getElementById("meta").textContent =
     `${methodLabels[equity.method] || equity.method} · ${equity.trials} scenari` +
     (equity.tie_probability > 0 ? ` · split ${(equity.tie_probability * 100).toFixed(1)}%` : "");
+}
+
+// Un solo punto in cui si decide il verdetto, usato sia dalla schermata sia dal
+// riepilogo da copiare: se stessero in due posti diversi potrebbero divergere, e
+// il testo copiato direbbe "EV positivo" mentre lo schermo dice "al limite".
+function buildVerdict(ev, shoveEv) {
+  const decision = shoveEv || ev;
+  const label = shoveEv ? "shove" : "call";
+
+  // Quando l'equity è stimata (Monte Carlo) anche l'EV lo è. Se il suo intervallo
+  // di confidenza attraversa lo zero, il segno non è stato stabilito dal calcolo:
+  // darlo come verdetto secco spaccerebbe per deciso un caso che è al limite.
+  const uncertain =
+    decision.ev_low != null && decision.ev_high != null && decision.ev_low <= 0 && decision.ev_high >= 0;
+
+  if (uncertain) {
+    return { text: `EV al limite (${label})`, uncertain: true, low: decision.ev_low, high: decision.ev_high };
+  }
+  return {
+    text: `EV ${decision.profitable ? "positivo" : "negativo"} (${label})`,
+    uncertain: false,
+    low: decision.ev_low,
+    high: decision.ev_high,
+  };
 }
 
 function buildSummaryText(heroCards, board, numOpponents, equity, potOdds, ev, shoveEv, tableMetrics) {
@@ -677,9 +712,7 @@ function buildSummaryText(heroCards, board, numOpponents, equity, potOdds, ev, s
   if (shoveEv) {
     lines.push(`EV shove: ${shoveEv.ev > 0 ? "+" : ""}${shoveEv.ev.toFixed(2)}€`);
   }
-  const verdictLabel = shoveEv ? "shove" : "call";
-  const profitable = shoveEv ? shoveEv.profitable : ev.profitable;
-  lines.push(`Verdetto: EV ${profitable ? "positivo" : "negativo"} (${verdictLabel})`);
+  lines.push(`Verdetto: ${buildVerdict(ev, shoveEv).text}`);
   return lines.join("\n");
 }
 
@@ -838,6 +871,10 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
       amount_to_call: amountToCall,
       pot_before_call: potBeforeCall,
       implied_future_bet: impliedFutureBet,
+      // Con l'equity stimata, anche l'EV lo è: gli estremi servono a capire se il
+      // segno è davvero determinato o se ricade dentro l'errore di campionamento.
+      hero_equity_low: equity.ci_low,
+      hero_equity_high: equity.ci_high,
     };
     const requests = [potOddsPromise, tableMetricsPromise, postJSON("/api/ev", evPayload)];
     if (shoveEnabled) {
@@ -849,6 +886,8 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
           shove_amount: shoveAmount,
           // Già dentro al piatto: l'avversario deve aggiungere solo la differenza.
           villain_already_in: amountToCall,
+          hero_equity_low: equity.ci_low,
+          hero_equity_high: equity.ci_high,
         })
       );
     }

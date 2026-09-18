@@ -7,7 +7,13 @@ import pytest
 from collections import Counter
 
 from engine.cards import Card, full_deck, parse_cards, remaining_deck
-from engine.equity import InvalidEquityInputError, _deal_trial, _enumerate_draws, calculate_equity
+from engine.equity import (
+    InvalidEquityInputError,
+    _deal_trial,
+    _enumerate_draws,
+    _joint_range_hands,
+    calculate_equity,
+)
 from engine.evaluator import compare_hands
 from engine.ranges import expand_range
 
@@ -107,7 +113,8 @@ def test_enumerate_draws_covers_every_board_hand_split_once():
     """
     deck = full_deck()[:10]  # mazzo ridotto: test strutturale, non serve valutare mani
 
-    draws = list(_enumerate_draws(deck, [], unknown_board_count=1, unknown_random_count=1))
+    # [()] = nessun avversario a range, quindi una sola assegnazione: quella vuota.
+    draws = list(_enumerate_draws(deck, [()], unknown_board_count=1, unknown_random_count=1))
 
     hands_per_board_card = 36  # C(9, 2): le mani possibili con le carte rimaste
     assert len(draws) == len(deck) * hands_per_board_card
@@ -405,6 +412,61 @@ def test_exact_enumeration_rejects_ranges_that_cannot_coexist():
         calculate_equity(hero, board, villain_ranges=[["AA"], ["AA"], ["AA"]], num_opponents=3)
 
 
+def test_tight_ranges_on_several_opponents_are_computed_not_rejected():
+    """Regressione: quattro avversari su "AA,KK" hanno 216 assegnazioni valide su
+    20.736, cioè una accettata ogni 96. Pescando a caso e ritentando, prima o poi
+    uno dei ventimila trial esauriva i tentativi e l'intero calcolo falliva
+    dichiarando impossibile una configurazione che è invece perfettamente giocabile.
+    """
+    hero = parse_cards(["2c", "7d"])
+
+    result = calculate_equity(
+        hero, [], villain_ranges=[["AA", "KK"]] * 4, num_opponents=4,
+        iterations=5000, rng=random.Random(7),
+    )
+
+    assert result.method == "monte_carlo"
+    assert result.trials == 5000
+    # Con quattro avversari su AA/KK, 72o vince di rado ma non quasi mai: deve
+    # centrare il piatto contro mani che restano una coppia alta.
+    assert 0.05 < result.hero_equity < 0.30
+
+
+def test_impossible_ranges_are_proved_impossible_without_enumerating():
+    """Cinque avversari su "AA,KK" chiedono dieci carte distinte da otto disponibili.
+
+    Il prodotto dei pool (248.832) è troppo grande da percorrere, ma l'impossibilità
+    si dimostra contando le carte: il messaggio deve essere quello definitivo, non
+    quello del campionamento che si arrende.
+    """
+    hero = parse_cards(["2c", "7d"])
+
+    with pytest.raises(InvalidEquityInputError, match="non possono coesistere"):
+        calculate_equity(hero, [], villain_ranges=[["AA", "KK"]] * 5, num_opponents=5, iterations=1000)
+
+
+def test_joint_range_hands_keeps_only_jointly_valid_assignments():
+    """Controllo strutturale sulla lista da cui pescano entrambi i metodi."""
+    hero = parse_cards(["2c", "7d"])
+    pools = [expand_range(["AA", "KK"], hero) for _ in range(4)]
+
+    joint = _joint_range_hands(pools)
+
+    assert len(joint) == 216
+    for assignment in joint:
+        cards = [card for hand in assignment for card in hand]
+        assert len(set(cards)) == 8  # nessun avversario usa la carta di un altro
+
+
+def test_joint_range_hands_returns_none_when_pools_are_too_wide_to_precompute():
+    """Pool larghi: si lascia lavorare il rejection sampling invece di materializzare
+    milioni di assegnazioni che quasi mai collidono."""
+    hero = parse_cards(["2c", "7d"])
+    wide = expand_range(["AA", "KK", "QQ", "JJ", "TT", "AKs", "AKo", "AQs", "AQo"], hero)
+
+    assert _joint_range_hands([wide, wide, wide]) is None
+
+
 def test_rejects_empty_range():
     hero = parse_cards(["Ah", "As"])
 
@@ -428,7 +490,8 @@ def test_rejects_too_many_known_and_ranged_opponents():
         calculate_equity(hero, [], villain_cards=[known_villain], villain_ranges=[["KK"]], num_opponents=1)
 
 
-def test_deal_trial_two_overlapping_ranges_gives_uniform_feasible_joint_distribution():
+@pytest.mark.parametrize("precomputed", [True, False], ids=["assegnazioni_precalcolate", "rejection_sampling"])
+def test_deal_trial_two_overlapping_ranges_gives_uniform_feasible_joint_distribution(precomputed):
     """Controesempio: un filtraggio sequenziale (pesca il primo pool, poi
     filtra il secondo su quanto resta) produce un bias quando i due pool si
     bloccano a vicenda in modo asimmetrico. Qui pool_a = {A, B}, pool_b = {C, D}
@@ -436,11 +499,19 @@ def test_deal_trial_two_overlapping_ranges_gives_uniform_feasible_joint_distribu
     nessuno dei due. Le tre coppie congiuntamente compatibili sono (A,D), (B,C),
     (B,D): con un dealing corretto devono uscire ciascuna ~1/3 delle volte.
     Un filtraggio sequenziale darebbe invece (A,D)=1/2, (B,C)=1/4, (B,D)=1/4.
+
+    Il test gira su entrambi i rami di _deal_trial — assegnazioni precalcolate e
+    rejection sampling — perché devono produrre la stessa identica distribuzione:
+    è l'unica garanzia che il ramo scelto non cambi il risultato.
     """
     A = (Card("7", "h"), Card("6", "h"))
     B = (Card("7", "s"), Card("6", "s"))
     C = (Card("7", "h"), Card("5", "h"))  # confligge con A (condivide 7h)
     D = (Card("9", "c"), Card("8", "d"))  # non confligge né con A né con B
+
+    pools = [[A, B], [C, D]]
+    # None forza il rejection sampling anche se i pool sarebbero precalcolabili.
+    joint_hands = _joint_range_hands(pools) if precomputed else None
 
     # unknown_board_count e unknown_random_count sono 0 in questo test: il
     # mazzo residuo non viene mai campionato, serve solo come parametro.
@@ -450,7 +521,14 @@ def test_deal_trial_two_overlapping_ranges_gives_uniform_feasible_joint_distribu
     trials = 30_000
     outcomes: Counter[tuple[str, str]] = Counter()
     for _ in range(trials):
-        _, hands = _deal_trial(rng, deck, unknown_board_count=0, unknown_random_count=0, range_pools=[[A, B], [C, D]])
+        _, hands = _deal_trial(
+            rng,
+            deck,
+            unknown_board_count=0,
+            unknown_random_count=0,
+            range_pools=pools,
+            joint_hands=joint_hands,
+        )
         first = "A" if hands[0] == list(A) else "B"
         second = "C" if hands[1] == list(C) else "D"
         outcomes[(first, second)] += 1

@@ -99,11 +99,19 @@ class EvRequest(BaseModel):
     implied_future_bet: float = Field(
         default=0.0, ge=0, description="Stima manuale di puntate future vinte in caso di showdown vinto (implied odds)."
     )
+    hero_equity_low: float | None = Field(
+        default=None, ge=0, le=1, description="Estremo inferiore dell'IC 95% sull'equity (solo Monte Carlo)."
+    )
+    hero_equity_high: float | None = Field(
+        default=None, ge=0, le=1, description="Estremo superiore dell'IC 95% sull'equity (solo Monte Carlo)."
+    )
 
 
 class EvResponse(BaseModel):
     ev: float
     profitable: bool
+    ev_low: float | None = None
+    ev_high: float | None = None
 
 
 class ShoveEvRequest(BaseModel):
@@ -116,11 +124,19 @@ class ShoveEvRequest(BaseModel):
         ge=0,
         description="Quanto l'avversario ha già messo nel piatto in questo giro (l'importo che si dovrebbe chiamare): è già dentro pot_before_shove e non va contato due volte.",
     )
+    hero_equity_low: float | None = Field(
+        default=None, ge=0, le=1, description="Estremo inferiore dell'IC 95% sull'equity (solo Monte Carlo)."
+    )
+    hero_equity_high: float | None = Field(
+        default=None, ge=0, le=1, description="Estremo superiore dell'IC 95% sull'equity (solo Monte Carlo)."
+    )
 
 
 class ShoveEvResponse(BaseModel):
     ev: float
     profitable: bool
+    ev_low: float | None = None
+    ev_high: float | None = None
 
 
 class TableMetricsRequest(BaseModel):

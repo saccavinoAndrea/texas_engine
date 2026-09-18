@@ -116,6 +116,56 @@ def test_ev_endpoint_not_profitable():
     assert body["profitable"] is False
 
 
+def test_ev_endpoint_without_equity_bounds_returns_no_ev_bounds():
+    """Con l'enumerazione esatta l'equity non ha intervallo: non va inventato."""
+    response = client.post("/api/ev", json={"hero_equity": 0.5, "amount_to_call": 50, "pot_before_call": 100})
+    body = response.json()
+    assert body["ev_low"] is None
+    assert body["ev_high"] is None
+
+
+def test_ev_endpoint_propagates_equity_confidence_interval_onto_ev():
+    """L'incertezza dell'equity stimata deve arrivare fino all'EV, con la stessa formula."""
+    payload = {
+        "hero_equity": 0.34,
+        "hero_equity_low": 0.32,
+        "hero_equity_high": 0.36,
+        "amount_to_call": 50,
+        "pot_before_call": 100,
+    }
+    response = client.post("/api/ev", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["ev_low"] == pytest.approx(0.32 * 150 - 50)
+    assert body["ev_high"] == pytest.approx(0.36 * 150 - 50)
+    # Il caso interessante: l'EV puntuale è positivo ma l'intervallo attraversa lo
+    # zero, quindi il segno non è stabilito dal campionamento.
+    assert body["ev"] > 0
+    assert body["ev_low"] < 0 < body["ev_high"]
+
+
+def test_shove_ev_endpoint_propagates_equity_confidence_interval():
+    payload = {
+        "hero_equity_if_called": 0.4,
+        "hero_equity_low": 0.38,
+        "hero_equity_high": 0.42,
+        "fold_probability": 0.3,
+        "pot_before_shove": 20,
+        "shove_amount": 50,
+    }
+    response = client.post("/api/shove-ev", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+
+    def expected(equity: float) -> float:
+        return 0.3 * 20.0 + 0.7 * (equity * (20 + 2 * 50) - 50)
+
+    assert body["ev_low"] == pytest.approx(expected(0.38))
+    assert body["ev_high"] == pytest.approx(expected(0.42))
+    assert body["ev_low"] < body["ev"] < body["ev_high"]
+
+
 def test_ev_endpoint_rejects_equity_out_of_range():
     response = client.post("/api/ev", json={"hero_equity": 1.2, "amount_to_call": 50, "pot_before_call": 100})
     assert response.status_code == 422

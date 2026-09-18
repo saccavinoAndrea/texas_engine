@@ -29,6 +29,17 @@ CONFIDENCE_Z_SCORE = 1.96  # ~95% per una normale, valido per n grande (approssi
 # sarebbe il flop contro un ignoto, oltre un milione di combinazioni.
 EXACT_ENUMERATION_MAX_COMBOS = 50_000
 
+# Quando gli avversari a range sono pochi e stretti, tutte le assegnazioni di mani
+# possibili si contano una volta sola: si sa con certezza se i range possono
+# coesistere e si pesca direttamente fra quelle valide. Oltre questa soglia i pool
+# sono abbastanza larghi da rendere efficiente il rejection sampling.
+JOINT_RANGE_MAX_PRODUCT = 100_000
+
+# Tentativi concessi al rejection sampling prima di dichiararlo impraticabile.
+# Serve solo per i range troppo larghi da precalcolare: con un tasso di
+# accettazione anche solo dell'1% la probabilità di esaurirli è ~10^-44.
+MAX_REJECTION_ATTEMPTS = 10_000
+
 
 class InvalidEquityInputError(ValueError):
     pass
@@ -72,73 +83,126 @@ def _validate_input(
         raise InvalidEquityInputError("carte duplicate tra hero/board/villain")
 
 
+def _joint_range_hands(
+    range_pools: list[list[tuple[Card, Card]]],
+) -> list[tuple[tuple[Card, Card], ...]] | None:
+    """Tutte le assegnazioni di una mano per range valide *insieme*, senza carte condivise.
+
+    Restituisce None quando il prodotto dei pool supera JOINT_RANGE_MAX_PRODUCT:
+    lì percorrerle tutte costerebbe troppo, ma range così larghi collidono di rado
+    e il rejection sampling fa lo stesso lavoro senza materializzare nulla.
+
+    Precalcolarle risolve il problema del rejection sampling con range stretti che
+    si bloccano a vicenda: quattro avversari su "AA,KK" hanno 216 assegnazioni
+    valide su 20.736, cioè un tentativo accettato ogni 96. Pescare a caso e
+    ritentare finisce per esaurire qualsiasi budget di tentativi su almeno uno dei
+    20.000 trial, facendo fallire un calcolo che invece è perfettamente possibile.
+
+    Una lista vuota significa impossibile in senso dimostrato, mai "non ci sono
+    riuscito": o si sono percorse tutte le assegnazioni senza trovarne una valida,
+    o i range non offrono abbastanza carte distinte da servire tutti gli avversari.
+    """
+    if not range_pools:
+        return [()]
+
+    # Prova di impossibilità che non richiede di enumerare nulla: servono due carte
+    # distinte per avversario, quindi se l'unione dei range non ne offre abbastanza
+    # nessuna assegnazione può esistere. Cinque avversari su "AA,KK" hanno solo otto
+    # carte per dieci fabbisogni: si può dirlo subito, anche con pool enormi.
+    distinct_cards = {card for pool in range_pools for hand in pool for card in hand}
+    if len(distinct_cards) < 2 * len(range_pools):
+        return []
+
+    if math.prod(len(pool) for pool in range_pools) > JOINT_RANGE_MAX_PRODUCT:
+        return None
+
+    valid: list[tuple[tuple[Card, Card], ...]] = []
+    for assignment in itertools.product(*range_pools):
+        used: set[Card] = set()
+        for hand in assignment:
+            used.update(hand)
+        if len(used) == 2 * len(assignment):  # nessun avversario usa la carta di un altro
+            valid.append(assignment)
+    return valid
+
+
+def _draw_ranged_hands(
+    rng: random.Random,
+    range_pools: list[list[tuple[Card, Card]]],
+    joint_hands: list[tuple[tuple[Card, Card], ...]] | None,
+) -> list[list[Card]]:
+    """Pesca una mano per ciascun avversario a range.
+
+    In entrambi i rami la distribuzione è la stessa: uniforme sulle assegnazioni
+    congiuntamente valide. Non basta pescare dai pool in sequenza filtrando via via
+    le carte già uscite — la probabilità di ogni assegnazione finale dipenderebbe
+    dall'ordine dei range invece che essere uniforme.
+    """
+    if joint_hands is not None:
+        return [list(hand) for hand in rng.choice(joint_hands)]
+
+    for _ in range(MAX_REJECTION_ATTEMPTS):
+        used: set[Card] = set()
+        hands: list[list[Card]] = []
+        for pool in range_pools:
+            c1, c2 = rng.choice(pool)
+            if c1 in used or c2 in used:
+                break  # collisione: si riparte da capo, non si ripesca solo questo range
+            used.add(c1)
+            used.add(c2)
+            hands.append([c1, c2])
+        else:
+            return hands
+
+    raise InvalidEquityInputError(
+        "i range indicati si bloccano troppo a vicenda perché il campionamento trovi "
+        "combinazioni compatibili: allarga i range o riducine il numero"
+    )
+
+
 def _deal_trial(
     rng: random.Random,
     deck: list[Card],
     unknown_board_count: int,
     unknown_random_count: int,
     range_pools: list[list[tuple[Card, Card]]],
-    max_attempts: int = 500,
+    joint_hands: list[tuple[tuple[Card, Card], ...]] | None,
 ) -> tuple[list[Card], list[list[Card]]]:
-    """Pesca le carte di un trial.
+    """Pesca le carte di un trial: prima le mani a range, poi il resto.
 
-    Gli avversari a range vengono pescati con rejection sampling: ognuno pesca
-    in modo indipendente e uniforme dal proprio pool intero; se due pool si
-    accavallano su una stessa carta, l'intero tentativo viene ritentato. Questo
-    è l'unico modo per ottenere una distribuzione uniforme sulle combinazioni
-    congiuntamente valide quando i pool si bloccano a vicenda in modo
-    asimmetrico — un filtraggio sequenziale (pesca il primo pool, poi filtra
-    il secondo sulle carte residue) introdurrebbe un bias: la probabilità di
-    ogni combinazione finale dipenderebbe dall'ordine di pesca invece che
-    essere uniforme tra le combinazioni congiuntamente compatibili.
-    Le carte random (avversari ignoti + board mancante) vengono poi pescate
-    uniformemente da quanto resta del mazzo, senza bisogno di rejection
-    sampling perché non hanno un pool proprio da far collidere con altri.
+    Board mancante e avversari a mano ignota si pescano uniformemente da quel che
+    resta del mazzo, senza vincoli propri da far collidere con altri.
     """
-    for _ in range(max_attempts):
-        used: set[Card] = set()
-        ranged_hands: list[list[Card]] = []
-        conflict = False
+    ranged_hands = _draw_ranged_hands(rng, range_pools, joint_hands)
+    used = {card for hand in ranged_hands for card in hand}
 
-        for pool in range_pools:
-            c1, c2 = rng.choice(pool)
-            if c1 in used or c2 in used:
-                conflict = True
-                break
-            used.add(c1)
-            used.add(c2)
-            ranged_hands.append([c1, c2])
-
-        if conflict:
-            continue
-
-        available = [card for card in deck if card not in used]
-        needed = unknown_board_count + 2 * unknown_random_count
-        drawn = rng.sample(available, needed)
-        board_draw = drawn[:unknown_board_count]
-        random_hands = [drawn[i : i + 2] for i in range(unknown_board_count, needed, 2)]
-        return board_draw, [*ranged_hands, *random_hands]
-
-    raise InvalidEquityInputError(
-        "impossibile pescare mani valide per i range indicati: troppo vincolati rispetto alle carte note"
-    )
+    available = [card for card in deck if card not in used] if used else deck
+    needed = unknown_board_count + 2 * unknown_random_count
+    drawn = rng.sample(available, needed)
+    board_draw = drawn[:unknown_board_count]
+    random_hands = [drawn[i : i + 2] for i in range(unknown_board_count, needed, 2)]
+    return board_draw, [*ranged_hands, *random_hands]
 
 
 def _enumeration_size(
     deck_size: int,
-    range_pools: list[list[tuple[Card, Card]]],
+    num_range_pools: int,
+    joint_hands: list[tuple[tuple[Card, Card], ...]] | None,
     unknown_board_count: int,
     unknown_random_count: int,
-) -> int:
-    """Limite superiore alle distribuzioni che produrrebbe _enumerate_draws.
+) -> float:
+    """Quante distribuzioni produrrebbe _enumerate_draws.
 
-    È un limite e non il valore esatto perché le combinazioni di range che si
-    contendono la stessa carta vengono scartate durante l'enumerazione: la stima
-    può solo eccedere, quindi al più manda in Monte Carlo qualche caso che sarebbe
-    stato enumerabile, mai il contrario.
+    math.inf quando le assegnazioni dei range non sono state precalcolate: quei
+    pool sono così larghi che l'enumerazione sarebbe comunque fuori scala.
+    Negli altri casi è il conto esatto, non una stima: le assegnazioni valide
+    sono già state contate una per una.
     """
-    size = math.prod(len(pool) for pool in range_pools)
-    deck_after_hands = deck_size - 2 * len(range_pools)
+    if joint_hands is None:
+        return math.inf
+
+    size = len(joint_hands)
+    deck_after_hands = deck_size - 2 * num_range_pools
     size *= math.comb(deck_after_hands, unknown_board_count)
     if unknown_random_count == 1:
         size *= math.comb(deck_after_hands - unknown_board_count, 2)
@@ -147,7 +211,7 @@ def _enumeration_size(
 
 def _enumerate_draws(
     deck: list[Card],
-    range_pools: list[list[tuple[Card, Card]]],
+    joint_hands: list[tuple[tuple[Card, Card], ...]],
     unknown_board_count: int,
     unknown_random_count: int,
 ) -> Iterator[tuple[list[Card], list[list[Card]]]]:
@@ -160,20 +224,19 @@ def _enumerate_draws(
     enumererebbe una sola ripartizione, sempre la stessa, e l'equity ne uscirebbe
     falsata.
 
-    Le combinazioni di range che condividono una carta vengono saltate, così
-    restano solo quelle congiuntamente possibili, tutte con lo stesso peso: è la
-    stessa distribuzione che il Monte Carlo ottiene per rejection sampling.
+    Le assegnazioni dei range arrivano già filtrate da _joint_range_hands, la
+    stessa lista da cui pesca il Monte Carlo: le due strade condividono la
+    distribuzione per costruzione invece che per somiglianza fra due filtri
+    scritti a parte.
 
     Gestisce al massimo un avversario a mano ignota: con due o più andrebbe
     enumerata anche l'assegnazione delle coppie ai singoli avversari, e il volume
     supererebbe comunque EXACT_ENUMERATION_MAX_COMBOS finendo in Monte Carlo.
     """
-    for ranged_hands in itertools.product(*range_pools):
+    for ranged_hands in joint_hands:
         used: set[Card] = set()
         for hand in ranged_hands:
             used.update(hand)
-        if len(used) < 2 * len(ranged_hands):  # due range hanno pescato la stessa carta
-            continue
 
         available = [card for card in deck if card not in used] if used else deck
         for board_draw in itertools.combinations(available, unknown_board_count):
@@ -212,6 +275,16 @@ def calculate_equity(
     except InvalidRangeError as exc:
         raise InvalidEquityInputError(str(exc)) from exc
 
+    # Una sola volta, prima di qualsiasi trial: quali mani possono avere insieme
+    # gli avversari a range. Sia l'enumerazione esatta sia il Monte Carlo pescano
+    # da qui, quindi lavorano per costruzione sulla stessa distribuzione.
+    joint_range_hands = _joint_range_hands(range_pools)
+    if joint_range_hands is not None and not joint_range_hands:
+        raise InvalidEquityInputError(
+            "i range indicati non possono coesistere: non esiste un'assegnazione di mani che "
+            "li rispetti tutti senza che due avversari usino la stessa carta"
+        )
+
     hero_share = 0.0
     hero_share_squares = 0.0  # serve per l'errore standard, vedi più sotto
     opponents_share = [0.0] * num_opponents
@@ -242,7 +315,10 @@ def calculate_equity(
         method = "direct_comparison"
     elif (
         unknown_random_count <= 1
-        and _enumeration_size(len(deck), range_pools, unknown_board_count, unknown_random_count)
+        and joint_range_hands is not None
+        and _enumeration_size(
+            len(deck), len(range_pools), joint_range_hands, unknown_board_count, unknown_random_count
+        )
         <= EXACT_ENUMERATION_MAX_COMBOS
     ):
         # Poche combinazioni residue: le percorriamo tutte una per una, il
@@ -250,22 +326,23 @@ def calculate_equity(
         # avversari a range, che su turn e river valgono poche centinaia di casi.
         method = "exact_enumeration"
         for board_draw, unknown_hands in _enumerate_draws(
-            deck, range_pools, unknown_board_count, unknown_random_count
+            deck, joint_range_hands, unknown_board_count, unknown_random_count
         ):
             record_outcome(board + board_draw, unknown_hands)
-        if trials == 0:
-            raise InvalidEquityInputError(
-                "impossibile pescare mani valide per i range indicati: troppo vincolati rispetto alle carte note"
-            )
     else:
         # Troppe combinazioni: preflop, 2+ avversari a mano ignota, o range su un
         # board ancora tutto da scoprire. Si stima campionando.
         method = "monte_carlo"
         rng = rng or random
         for _ in range(iterations):
-            board_draw, unknown_hands = _deal_trial(rng, deck, unknown_board_count, unknown_random_count, range_pools)
+            board_draw, unknown_hands = _deal_trial(
+                rng, deck, unknown_board_count, unknown_random_count, range_pools, joint_range_hands
+            )
             full_board = board + board_draw
             record_outcome(full_board, unknown_hands)
+
+    if trials == 0:  # rete di sicurezza: nessun percorso deve arrivare qui a mani vuote
+        raise InvalidEquityInputError("nessuno scenario valutabile con i dati forniti")
 
     hero_equity = hero_share / trials
     standard_error = ci_low = ci_high = None

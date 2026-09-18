@@ -263,6 +263,7 @@
         </div>
       </div>
       <div id="verdict" class="alert text-center fw-bold" role="alert">-</div>
+      <div class="text-secondary small text-center mb-3 d-none" id="verdictNote"></div>
       <div class="text-secondary small text-center d-flex align-items-center justify-content-center gap-1" id="metaRow">
         <span id="meta"></span>
         <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Metodo di calcolo" data-bs-content="Il motore sceglie da sé in base a quante combinazioni restano da scoprire. Confronto diretto: mani già chiuse e board completo, un solo caso possibile. Enumerazione esatta: le combinazioni residue sono poche e vengono percorse tutte, quindi il risultato è esatto (tipico di turn e river, anche con un range assegnato). Monte Carlo: troppe combinazioni (preflop, o più avversari a mano ignota), quindi si stima campionando e viene mostrato l'intervallo di confidenza.">i</button>
@@ -415,7 +416,11 @@
                   della stima. Le <strong>pot odds</strong> ti dicono
                   quanta equity ti serve per pareggiare una chiamata: piatto / (piatto + importo da
                   chiamare). L'<strong>EV</strong> (valore atteso) traduce tutto in euro: se è positivo,
-                  quella decisione è profittevole nel lungo periodo.
+                  quella decisione è profittevole nel lungo periodo. Quando l'equity è stimata, anche l'EV
+                  lo è: se il suo margine di errore comprende lo zero il verdetto diventa
+                  <strong>"EV al limite"</strong> invece di positivo o negativo, perché il calcolo non ha
+                  stabilito da che parte sta la decisione — in quei casi a decidere sono lettura, posizione
+                  e tendenze dell'avversario, non il numero.
                 </div>
               </div>
             </div>
