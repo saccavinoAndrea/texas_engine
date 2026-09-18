@@ -1,0 +1,18 @@
+{
+  "name": "Texas Engine",
+  "short_name": "TxEngine",
+  "description": "Equity e pot odds live per Texas Hold'em cash game",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111418",
+  "theme_color": "#146c43",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

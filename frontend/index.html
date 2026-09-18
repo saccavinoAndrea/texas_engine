@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="it" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Texas Engine</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#146c43">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/icon.svg">
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/styles.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container-fluid px-2 py-2" style="max-width: 480px;">
+    <h1 class="h5 text-center mb-3">Texas Engine</h1>
+
+    <section class="mb-3">
+      <h2 class="h6 text-uppercase text-secondary">Le tue carte</h2>
+      <div class="d-flex gap-2">
+        <button type="button" class="card-slot" data-slot="hero1">+</button>
+        <button type="button" class="card-slot" data-slot="hero2">+</button>
+      </div>
+    </section>
+
+    <section class="mb-3">
+      <h2 class="h6 text-uppercase text-secondary">Board</h2>
+      <div class="d-flex gap-2 flex-wrap">
+        <button type="button" class="card-slot" data-slot="flop1">+</button>
+        <button type="button" class="card-slot" data-slot="flop2">+</button>
+        <button type="button" class="card-slot" data-slot="flop3">+</button>
+        <button type="button" class="card-slot ms-2" data-slot="turn">+</button>
+        <button type="button" class="card-slot ms-2" data-slot="river">+</button>
+      </div>
+      <div class="form-text">Flop (3), poi turn, poi river. Lascia vuoto per il preflop.</div>
+    </section>
+
+    <section class="mb-3">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" role="switch" id="knowVillain">
+        <label class="form-check-label" for="knowVillain">Conosco le carte di un avversario</label>
+      </div>
+      <div class="d-flex gap-2 mt-2 d-none" id="villainSlots">
+        <button type="button" class="card-slot" data-slot="villain1">+</button>
+        <button type="button" class="card-slot" data-slot="villain2">+</button>
+      </div>
+    </section>
+
+    <section class="mb-3">
+      <label for="numOpponents" class="form-label text-secondary text-uppercase small mb-1">Numero avversari</label>
+      <select id="numOpponents" class="form-select">
+        <option value="1" selected>1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+    </section>
+
+    <section class="mb-3 row g-2">
+      <div class="col-6">
+        <label for="potBeforeCall" class="form-label text-secondary text-uppercase small mb-1">Piatto</label>
+        <input type="number" inputmode="decimal" class="form-control form-control-lg" id="potBeforeCall" placeholder="0" min="0" step="0.5">
+      </div>
+      <div class="col-6">
+        <label for="amountToCall" class="form-label text-secondary text-uppercase small mb-1">Da chiamare</label>
+        <input type="number" inputmode="decimal" class="form-control form-control-lg" id="amountToCall" placeholder="0" min="0" step="0.5">
+      </div>
+    </section>
+
+    <div class="d-grid mb-3">
+      <button type="button" id="calcolaBtn" class="btn btn-success btn-lg py-3">Calcola</button>
+    </div>
+
+    <div id="errorBox" class="alert alert-danger d-none" role="alert"></div>
+
+    <section id="results" class="d-none">
+      <div class="row g-2 text-center mb-2">
+        <div class="col-6">
+          <div class="result-card">
+            <div class="result-label">Tua equity</div>
+            <div class="result-value" id="heroEquity">-</div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="result-card">
+            <div class="result-label">Equity richiesta</div>
+            <div class="result-value" id="requiredEquity">-</div>
+          </div>
+        </div>
+      </div>
+      <div id="verdict" class="alert text-center fw-bold" role="alert">-</div>
+      <div class="text-secondary small text-center" id="meta"></div>
+    </section>
+  </div>
+
+  <!-- Modal selezione carta -->
+  <div class="modal" tabindex="-1" id="cardPickerModal">
+    <div class="modal-dialog modal-fullscreen-sm-down">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Seleziona carta</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="pickerGrid"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger" id="clearSlotBtn">Svuota</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "texas-engine"
+version = "0.1.0"
+description = "Equity/pot-odds engine per Texas Hold'em cash game, con API FastAPI e PWA per uso live al tavolo"
+authors = ["Andrea Saccavino <saccavino.andrea@gmail.com>"]
+readme = "README.md"
+packages = [
+    { include = "engine" },
+    { include = "api" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115"
+uvicorn = { extras = ["standard"], version = "^0.32" }
+treys = "^0.1.8"
+pydantic = "^2.9"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+httpx = "^0.27"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
