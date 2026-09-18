@@ -72,3 +72,24 @@ def test_pot_odds_endpoint():
 def test_pot_odds_endpoint_rejects_negative():
     response = client.post("/api/pot-odds", json={"amount_to_call": -1, "pot_before_call": 100})
     assert response.status_code == 422
+
+
+def test_ev_endpoint_profitable():
+    response = client.post("/api/ev", json={"hero_equity": 0.5, "amount_to_call": 50, "pot_before_call": 100})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ev"] == pytest.approx(25.0)
+    assert body["profitable"] is True
+
+
+def test_ev_endpoint_not_profitable():
+    response = client.post("/api/ev", json={"hero_equity": 0.1, "amount_to_call": 50, "pot_before_call": 100})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ev"] < 0
+    assert body["profitable"] is False
+
+
+def test_ev_endpoint_rejects_equity_out_of_range():
+    response = client.post("/api/ev", json={"hero_equity": 1.2, "amount_to_call": 50, "pot_before_call": 100})
+    assert response.status_code == 422

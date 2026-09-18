@@ -252,14 +252,20 @@ async function postJSON(url, payload) {
   return body;
 }
 
-function renderResults(equity, potOdds) {
+function renderResults(equity, potOdds, ev) {
   document.getElementById("results").classList.remove("d-none");
   document.getElementById("heroEquity").textContent = `${(equity.hero_equity * 100).toFixed(1)}%`;
   document.getElementById("requiredEquity").textContent = `${potOdds.required_equity_percentage.toFixed(1)}%`;
 
+  const evEl = document.getElementById("evValue");
+  const evSign = ev.ev > 0 ? "+" : "";
+  evEl.textContent = `${evSign}${ev.ev.toFixed(2)}`;
+  evEl.classList.toggle("text-success", ev.ev > 0);
+  evEl.classList.toggle("text-danger", ev.ev < 0);
+
   const verdict = document.getElementById("verdict");
-  const profitable = equity.hero_equity > potOdds.required_equity;
-  verdict.textContent = profitable ? "Call profittevole" : "Call in perdita";
+  const profitable = ev.profitable;
+  verdict.textContent = profitable ? "Call profittevole (EV positivo)" : "Call in perdita (EV negativo)";
   verdict.className = `alert text-center fw-bold ${profitable ? "alert-success" : "alert-danger"}`;
 
   const methodLabels = {
@@ -307,11 +313,17 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
   btn.disabled = true;
   btn.textContent = "Calcolo...";
   try {
-    const [equity, potOdds] = await Promise.all([
-      postJSON("/api/equity", equityPayload),
+    const equity = await postJSON("/api/equity", equityPayload);
+    const evPayload = {
+      hero_equity: equity.hero_equity,
+      amount_to_call: amountToCall,
+      pot_before_call: potBeforeCall,
+    };
+    const [potOdds, ev] = await Promise.all([
       postJSON("/api/pot-odds", potOddsPayload),
+      postJSON("/api/ev", evPayload),
     ]);
-    renderResults(equity, potOdds);
+    renderResults(equity, potOdds, ev);
   } catch (err) {
     showError(err.message);
   } finally {

@@ -3,12 +3,13 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from api.routers import equity, odds
+from api.routers import equity, ev, odds
 
 app = FastAPI(title="Texas Engine API", description="Equity e pot odds per Texas Hold'em cash game")
 
 app.include_router(equity.router)
 app.include_router(odds.router)
+app.include_router(ev.router)
 
 
 @app.get("/api/health")

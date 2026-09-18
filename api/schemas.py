@@ -67,3 +67,14 @@ class PotOddsRequest(BaseModel):
 class PotOddsResponse(BaseModel):
     required_equity: float
     required_equity_percentage: float
+
+
+class EvRequest(BaseModel):
+    hero_equity: float = Field(..., ge=0, le=1)
+    amount_to_call: float = Field(..., ge=0)
+    pot_before_call: float = Field(..., ge=0)
+
+
+class EvResponse(BaseModel):
+    ev: float
+    profitable: bool
