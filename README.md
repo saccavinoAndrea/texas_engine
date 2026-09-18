@@ -31,15 +31,15 @@ Il repo include `render.yaml`: basta collegare il repo su Render e verrà creato
 
 ## API
 
-- `POST /api/equity` — equity vs mano nota o ignota/random, split pot gestito proporzionalmente
+- `POST /api/equity` — equity vs una o più mani note e/o ignote/random (fino a 8 avversari), split pot gestito proporzionalmente
   - preflop/flop → Monte Carlo (iterazioni configurabili)
-  - turn → enumerazione esatta
-  - river → confronto diretto (o enumerazione esatta se l'avversario è ignoto)
+  - turn/river con al massimo 1 avversario ignoto → enumerazione esatta
+  - turn/river con 2+ avversari ignoti → Monte Carlo (l'enumerazione esatta esploderebbe combinatoriamente)
+  - river con tutte le mani note → confronto diretto
 - `POST /api/pot-odds` — equity minima richiesta per un call profittevole
 - `GET /api/health` — health check / warm-up
 
 ## Limitazioni note (MVP)
 
-- Un solo avversario a mano ignota/random per volta (multi-way con più range ignoti è fuori scope)
-- Nessun range avversario personalizzato, nessuna stima di fold equity, nessun calcolo EV/bet sizing
+- Nessun range avversario personalizzato (solo mano esatta nota, oppure ignota/random), nessuna stima di fold equity, nessun calcolo EV/bet sizing
 - Nessuno storico delle mani: lo stato vive solo nel browser durante la sessione

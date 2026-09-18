@@ -124,11 +124,55 @@ def test_multiple_known_opponents_flop():
     assert total == pytest.approx(1.0, abs=1e-9)
 
 
-def test_rejects_more_than_one_unknown_opponent():
+def test_two_unknown_opponents_preflop_matches_literature():
     hero = parse_cards(["Ah", "As"])
 
-    with pytest.raises(InvalidEquityInputError):
-        calculate_equity(hero, [], num_opponents=2)
+    result = calculate_equity(hero, [], num_opponents=2, iterations=MC_ITERATIONS, rng=random.Random(10))
+
+    assert result.method == "monte_carlo"
+    assert len(result.opponents_equity) == 2
+    # AA vs 2 mani random: equity nota in letteratura ~73.4%
+    assert result.hero_equity == pytest.approx(0.734, abs=MC_TOLERANCE)
+    assert result.hero_equity + sum(result.opponents_equity) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_three_unknown_opponents_preflop_matches_literature():
+    hero = parse_cards(["Ah", "As"])
+
+    result = calculate_equity(hero, [], num_opponents=3, iterations=MC_ITERATIONS, rng=random.Random(11))
+
+    assert result.method == "monte_carlo"
+    assert len(result.opponents_equity) == 3
+    # AA vs 3 mani random: equity nota in letteratura ~63.8%
+    assert result.hero_equity == pytest.approx(0.638, abs=MC_TOLERANCE)
+    assert result.hero_equity + sum(result.opponents_equity) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_two_unknown_opponents_on_turn_falls_back_to_monte_carlo():
+    """Con 2+ avversari ignoti l'enumerazione esatta esploderebbe combinatoriamente:
+    anche su turn/river si passa a Monte Carlo."""
+    hero = parse_cards(["Ah", "As"])
+    board = parse_cards(["2c", "5d", "9h", "Jd"])
+
+    result = calculate_equity(hero, board, num_opponents=2, iterations=5000, rng=random.Random(12))
+
+    assert result.method == "monte_carlo"
+    assert result.trials == 5000
+
+
+def test_mixed_known_and_unknown_opponents():
+    """1 avversario noto + 1 ignoto: deve comunque funzionare (Monte Carlo)."""
+    hero = parse_cards(["Ah", "As"])
+    known_villain = parse_cards(["Kh", "Ks"])
+    board = parse_cards(["2c", "5d", "9h"])
+
+    result = calculate_equity(
+        hero, board, villain_cards=[known_villain], num_opponents=3, iterations=MC_ITERATIONS, rng=random.Random(13)
+    )
+
+    assert result.method == "monte_carlo"
+    assert len(result.opponents_equity) == 3
+    assert result.hero_equity + sum(result.opponents_equity) == pytest.approx(1.0, abs=1e-9)
 
 
 def test_rejects_duplicate_cards():

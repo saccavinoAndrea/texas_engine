@@ -36,24 +36,23 @@
     </section>
 
     <section class="mb-3">
-      <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" role="switch" id="knowVillain">
-        <label class="form-check-label" for="knowVillain">Conosco le carte di un avversario</label>
-      </div>
-      <div class="d-flex gap-2 mt-2 d-none" id="villainSlots">
-        <button type="button" class="card-slot" data-slot="villain1">+</button>
-        <button type="button" class="card-slot" data-slot="villain2">+</button>
-      </div>
+      <label for="tableSize" class="form-label text-secondary text-uppercase small mb-1">Giocatori al tavolo (te incluso)</label>
+      <select id="tableSize" class="form-select">
+        <option value="2" selected>2 (heads-up)</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+        <option value="8">8</option>
+        <option value="9">9 (full ring)</option>
+      </select>
     </section>
 
     <section class="mb-3">
-      <label for="numOpponents" class="form-label text-secondary text-uppercase small mb-1">Numero avversari</label>
-      <select id="numOpponents" class="form-select">
-        <option value="1" selected>1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-      </select>
+      <h2 class="h6 text-uppercase text-secondary">Avversari</h2>
+      <div id="villainsContainer"></div>
+      <div class="form-text">Per ogni avversario indica le carte solo se le conosci: gli altri restano a mano ignota/random.</div>
     </section>
 
     <section class="mb-3 row g-2">

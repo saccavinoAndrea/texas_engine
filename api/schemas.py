@@ -23,7 +23,7 @@ class EquityRequest(BaseModel):
         default=None,
         description="Mani avversarie note (0..num_opponents). Gli avversari non specificati sono mano ignota/random.",
     )
-    num_opponents: int = Field(default=1, ge=1, le=4)
+    num_opponents: int = Field(default=1, ge=1, le=8)
     iterations: int = Field(default=DEFAULT_ITERATIONS, ge=1000, le=200_000)
 
     @field_validator("hero_cards")

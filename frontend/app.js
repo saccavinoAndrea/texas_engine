@@ -7,9 +7,10 @@ const SUITS = [
 ];
 
 const BOARD_ORDER = ["flop1", "flop2", "flop3", "turn", "river"];
+const MAX_OPPONENTS = 8;
 
-const state = {
-  slots: {
+function initialSlots() {
+  const slots = {
     hero1: null,
     hero2: null,
     flop1: null,
@@ -17,15 +18,31 @@ const state = {
     flop3: null,
     turn: null,
     river: null,
-    villain1: null,
-    villain2: null,
-  },
+  };
+  for (let i = 1; i <= MAX_OPPONENTS; i++) {
+    slots[`villain${i}_1`] = null;
+    slots[`villain${i}_2`] = null;
+  }
+  return slots;
+}
+
+function initialVillainKnown() {
+  const known = {};
+  for (let i = 1; i <= MAX_OPPONENTS; i++) known[i] = false;
+  return known;
+}
+
+const state = {
+  slots: initialSlots(),
+  villainKnown: initialVillainKnown(),
+  numOpponents: 1,
   activeSlot: null,
 };
 
 const pickerModalEl = document.getElementById("cardPickerModal");
 const pickerModal = new bootstrap.Modal(pickerModalEl);
 const pickerGrid = document.getElementById("pickerGrid");
+const villainsContainer = document.getElementById("villainsContainer");
 
 function usedCards(excludeSlot) {
   return Object.entries(state.slots)
@@ -42,6 +59,7 @@ function cardFaceHTML(rank, symbol) {
 
 function renderSlot(slotId) {
   const el = document.querySelector(`[data-slot="${slotId}"]`);
+  if (!el) return;
   const card = state.slots[slotId];
   el.classList.remove("suit-h", "suit-d", "suit-s", "suit-c", "filled");
   if (!card) {
@@ -96,19 +114,64 @@ document.getElementById("clearSlotBtn").addEventListener("click", () => {
   pickerModal.hide();
 });
 
-document.querySelectorAll(".card-slot").forEach((btn) => {
-  btn.addEventListener("click", () => openPicker(btn.dataset.slot));
+// Delega: gli slot delle carte avversario sono generati dinamicamente,
+// un unico listener sul documento copre sia quelli statici (hero/board) sia quelli dinamici.
+document.addEventListener("click", (e) => {
+  const slotBtn = e.target.closest(".card-slot");
+  if (slotBtn) {
+    openPicker(slotBtn.dataset.slot);
+  }
 });
 
-document.getElementById("knowVillain").addEventListener("change", (e) => {
-  const villainSlots = document.getElementById("villainSlots");
-  villainSlots.classList.toggle("d-none", !e.target.checked);
-  if (!e.target.checked) {
-    state.slots.villain1 = null;
-    state.slots.villain2 = null;
-    renderSlot("villain1");
-    renderSlot("villain2");
+function renderVillains() {
+  let html = "";
+  for (let i = 1; i <= state.numOpponents; i++) {
+    const known = state.villainKnown[i];
+    html += `
+      <div class="villain-row mb-2 pb-2 border-bottom border-secondary-subtle">
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="text-secondary small">Avversario ${i}</span>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input villain-known-toggle" type="checkbox" role="switch"
+                   data-villain="${i}" id="villainKnown${i}" ${known ? "checked" : ""}>
+            <label class="form-check-label small" for="villainKnown${i}">Conosco le carte</label>
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-2 ${known ? "" : "d-none"}">
+          <button type="button" class="card-slot" data-slot="villain${i}_1">+</button>
+          <button type="button" class="card-slot" data-slot="villain${i}_2">+</button>
+        </div>
+      </div>
+    `;
   }
+  villainsContainer.innerHTML = html;
+  for (let i = 1; i <= state.numOpponents; i++) {
+    renderSlot(`villain${i}_1`);
+    renderSlot(`villain${i}_2`);
+  }
+}
+
+villainsContainer.addEventListener("change", (e) => {
+  const toggle = e.target.closest(".villain-known-toggle");
+  if (!toggle) return;
+  const idx = parseInt(toggle.dataset.villain, 10);
+  state.villainKnown[idx] = toggle.checked;
+  if (!toggle.checked) {
+    state.slots[`villain${idx}_1`] = null;
+    state.slots[`villain${idx}_2`] = null;
+  }
+  renderVillains();
+});
+
+document.getElementById("tableSize").addEventListener("change", (e) => {
+  const tableSize = parseInt(e.target.value, 10);
+  state.numOpponents = tableSize - 1;
+  for (let i = state.numOpponents + 1; i <= MAX_OPPONENTS; i++) {
+    state.villainKnown[i] = false;
+    state.slots[`villain${i}_1`] = null;
+    state.slots[`villain${i}_2`] = null;
+  }
+  renderVillains();
 });
 
 function collectBoard() {
@@ -130,6 +193,20 @@ function collectBoard() {
   }
 
   return filled.filter(Boolean);
+}
+
+function collectVillainCards() {
+  const villainCards = [];
+  for (let i = 1; i <= state.numOpponents; i++) {
+    if (!state.villainKnown[i]) continue;
+    const c1 = state.slots[`villain${i}_1`];
+    const c2 = state.slots[`villain${i}_2`];
+    if (!c1 || !c2) {
+      throw new Error(`Seleziona entrambe le carte per l'avversario ${i}, oppure disattiva "conosco le carte"`);
+    }
+    villainCards.push([c1, c2]);
+  }
+  return villainCards.length > 0 ? villainCards : null;
 }
 
 function showError(message) {
@@ -189,26 +266,15 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
   }
 
   let board;
+  let villainCards;
   try {
     board = collectBoard();
+    villainCards = collectVillainCards();
   } catch (err) {
     showError(err.message);
     return;
   }
 
-  const knowVillain = document.getElementById("knowVillain").checked;
-  const villain1 = state.slots.villain1;
-  const villain2 = state.slots.villain2;
-  let villainCards = null;
-  if (knowVillain) {
-    if (!villain1 || !villain2) {
-      showError("Seleziona entrambe le carte dell'avversario, oppure disattiva l'opzione");
-      return;
-    }
-    villainCards = [[villain1, villain2]];
-  }
-
-  const numOpponents = parseInt(document.getElementById("numOpponents").value, 10);
   const potBeforeCall = parseFloat(document.getElementById("potBeforeCall").value || "0");
   const amountToCall = parseFloat(document.getElementById("amountToCall").value || "0");
 
@@ -216,7 +282,7 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
     hero_cards: [hero1, hero2],
     board,
     villain_cards: villainCards,
-    num_opponents: numOpponents,
+    num_opponents: state.numOpponents,
   };
   const potOddsPayload = { amount_to_call: amountToCall, pot_before_call: potBeforeCall };
 
@@ -238,6 +304,7 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
 });
 
 renderAllSlots();
+renderVillains();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

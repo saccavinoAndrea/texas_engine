@@ -43,13 +43,6 @@ def _validate_input(
         if len(hand) != 2:
             raise InvalidEquityInputError("ogni mano avversaria nota deve avere esattamente 2 carte")
 
-    unknown_opponents = num_opponents - len(known_villain_hands)
-    if unknown_opponents > 1:
-        raise InvalidEquityInputError(
-            "MVP: al massimo un avversario con mano ignota/random è supportato "
-            "(multi-way con più range ignoti è fuori scope per questa fase)"
-        )
-
     all_known = hero_cards + board + [c for hand in known_villain_hands for c in hand]
     if len(set(all_known)) != len(all_known):
         raise InvalidEquityInputError("carte duplicate tra hero/board/villain")
@@ -58,13 +51,15 @@ def _validate_input(
 def _players_after_deal(
     hero_cards: list[Card],
     known_villain_hands: list[list[Card]],
-    unknown_villain: bool,
+    unknown_opponents_count: int,
     draw: list[Card],
     unknown_board_count: int,
 ) -> list[list[Card]]:
     players = [hero_cards, *known_villain_hands]
-    if unknown_villain:
-        players.append(draw[unknown_board_count : unknown_board_count + 2])
+    offset = unknown_board_count
+    for _ in range(unknown_opponents_count):
+        players.append(draw[offset : offset + 2])
+        offset += 2
     return players
 
 
@@ -79,14 +74,13 @@ def calculate_equity(
     known_villain_hands = villain_cards or []
     _validate_input(hero_cards, board, known_villain_hands, num_opponents)
 
-    unknown_villain = len(known_villain_hands) < num_opponents
+    unknown_opponents_count = num_opponents - len(known_villain_hands)
     unknown_board_count = 5 - len(board)
-    num_players = 1 + num_opponents
 
     all_known = hero_cards + board + [c for hand in known_villain_hands for c in hand]
     deck = remaining_deck(all_known)
 
-    draw_size = unknown_board_count + (2 if unknown_villain else 0)
+    draw_size = unknown_board_count + 2 * unknown_opponents_count
 
     hero_share = 0.0
     opponents_share = [0.0] * num_opponents
@@ -96,7 +90,7 @@ def calculate_equity(
     def record_outcome(draw: list[Card]) -> None:
         nonlocal hero_share, tie_trials, trials
         full_board = board + draw[:unknown_board_count]
-        players = _players_after_deal(hero_cards, known_villain_hands, unknown_villain, draw, unknown_board_count)
+        players = _players_after_deal(hero_cards, known_villain_hands, unknown_opponents_count, draw, unknown_board_count)
         winners = compare_hands(players, full_board)
         share = 1.0 / len(winners)
         if len(winners) > 1:
@@ -113,7 +107,7 @@ def calculate_equity(
         # River con tutte le mani già chiuse: confronto diretto, nessun draw.
         record_outcome([])
         method = "direct_comparison"
-    elif len(board) == 4 or (len(board) == 5 and draw_size <= 2):
+    elif unknown_opponents_count <= 1 and (len(board) == 4 or (len(board) == 5 and draw_size <= 2)):
         # Turn (1 carta di board da scoprire, + eventuali 2 carte di un unico
         # avversario ignoto) oppure river con un solo avversario ignoto:
         # il numero di combinazioni residue resta piccolo, enumerazione esatta.
@@ -121,7 +115,9 @@ def calculate_equity(
         for combo in itertools.combinations(deck, draw_size):
             record_outcome(list(combo))
     else:
-        # Preflop/flop (o turn con avversario ignoto): Monte Carlo.
+        # Preflop/flop, oppure turn/river con 2+ avversari a mano ignota:
+        # con più range ignoti le combinazioni esatte esploderebbero
+        # combinatoriamente, quindi Monte Carlo anche su queste fasi.
         method = "monte_carlo"
         rng = rng or random
         for _ in range(iterations):
