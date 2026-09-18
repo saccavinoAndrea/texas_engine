@@ -208,7 +208,7 @@
           <div class="result-card">
             <div class="field-label justify-content-center">
               <div class="result-label mb-0">Tua equity</div>
-              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Tua equity" data-bs-content="La probabilità stimata che la tua mano vinca (o splitti) a showdown contro gli avversari indicati. Su preflop/flop è una stima Monte Carlo con relativo intervallo di confidenza al 95%; su turn/river con mani chiuse è calcolata esattamente.">i</button>
+              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Tua equity" data-bs-content="La probabilità che la tua mano vinca (o splitti) a showdown contro gli avversari indicati. Quando le combinazioni residue sono poche (tipicamente turn e river) è calcolata in modo esatto; quando sono troppe (preflop, più avversari ignoti) è una stima su migliaia di simulazioni, e in quel caso trovi sotto l'intervallo di confidenza al 95%.">i</button>
             </div>
             <div class="result-value" id="heroEquity">-</div>
             <div class="text-secondary small d-none" id="equityConfidence"></div>
@@ -237,7 +237,7 @@
           <div class="result-card">
             <div class="field-label justify-content-center">
               <div class="result-label mb-0">SPR</div>
-              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="SPR" data-bs-content="Stack-to-pot ratio: stack effettivo / piatto. Basso (sotto 3) = decisioni più semplici, spesso o fold o all-in; alto = più spazio di manovra postflop.">i</button>
+              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="SPR" data-bs-content="Stack-to-pot ratio: stack effettivo diviso il piatto qui indicato, che comprende già la puntata da chiamare. Più è basso, più sei vicino a doverti committare: sotto 3 le decisioni tendono a semplificarsi verso fold-o-all-in, sopra c'è spazio per manovrare. Attenzione se lo confronti con i valori dei manuali: lì l'SPR è di solito misurato sul piatto a inizio strada, prima delle puntate, quindi con una puntata da chiamare il valore mostrato qui risulta più basso.">i</button>
             </div>
             <div class="result-value" id="sprValue">-</div>
           </div>
@@ -258,11 +258,14 @@
           <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="EV dello shove" data-bs-content="Valore atteso dell'all-in: combina la probabilità di fold (vinci subito il piatto) e quella di call (si gioca a showdown per piatto + 2× shove).">i</button>
         </div>
         <div class="result-value" id="shoveEvValue">-</div>
+        <div class="text-warning small d-none" id="shoveMultiwayNote">
+          Calcolato come scontro con un solo avversario: con più giocatori ancora in mano servirebbe una stima di fold per ciascuno, quindi qui è un'approssimazione.
+        </div>
       </div>
       <div id="verdict" class="alert text-center fw-bold" role="alert">-</div>
       <div class="text-secondary small text-center d-flex align-items-center justify-content-center gap-1" id="metaRow">
         <span id="meta"></span>
-        <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Metodo di calcolo" data-bs-content="Monte Carlo: stima su tante simulazioni casuali (preflop/flop, o range). Enumerazione esatta: tutte le combinazioni residue una per una (turn/river senza range). Confronto diretto: mani già chiuse, nessuna carta da scoprire (river completo).">i</button>
+        <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Metodo di calcolo" data-bs-content="Il motore sceglie da sé in base a quante combinazioni restano da scoprire. Confronto diretto: mani già chiuse e board completo, un solo caso possibile. Enumerazione esatta: le combinazioni residue sono poche e vengono percorse tutte, quindi il risultato è esatto (tipico di turn e river, anche con un range assegnato). Monte Carlo: troppe combinazioni (preflop, o più avversari a mano ignota), quindi si stima campionando e viene mostrato l'intervallo di confidenza.">i</button>
       </div>
       <div class="d-grid mt-2">
         <button type="button" id="copySummaryBtn" class="btn btn-outline-light btn-sm">Copia riepilogo</button>
@@ -405,9 +408,11 @@
               <div id="guide4" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
                 <div class="accordion-body small">
                   L'<strong>equity</strong> è la probabilità che la tua mano vinca (o splitti) a showdown.
-                  Su preflop/flop viene stimata con migliaia di simulazioni casuali (Monte Carlo, con un
-                  intervallo di confidenza al 95% a corredo); su turn/river con mani chiuse viene calcolata
-                  esattamente enumerando tutte le carte residue. Le <strong>pot odds</strong> ti dicono
+                  Quando le combinazioni ancora da scoprire sono poche — tipicamente su turn e river, anche
+                  con un range assegnato — vengono percorse tutte e il risultato è esatto. Quando sono troppe
+                  (preflop, o più avversari a mano ignota) viene stimata su migliaia di simulazioni casuali,
+                  e in quel caso è accompagnata da un intervallo di confidenza al 95% che dice quanto fidarsi
+                  della stima. Le <strong>pot odds</strong> ti dicono
                   quanta equity ti serve per pareggiare una chiamata: piatto / (piatto + importo da
                   chiamare). L'<strong>EV</strong> (valore atteso) traduce tutto in euro: se è positivo,
                   quella decisione è profittevole nel lungo periodo.

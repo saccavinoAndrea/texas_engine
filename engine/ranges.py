@@ -49,16 +49,12 @@ def hand_class_combos(label: str) -> list[tuple[Card, Card]]:
     return [(Card(r1, s1), Card(r2, s2)) for s1 in SUITS for s2 in SUITS if s1 != s2]
 
 
-def expand_range(labels: list[str], excluded_cards: list[Card]) -> list[tuple[Card, Card]]:
-    """Espande un range (lista di classi) in combo concrete, escludendo carte già note.
+def _usable_combos(labels: list[str], excluded_cards: list[Card]) -> list[tuple[Card, Card]]:
+    """Combo concrete di un range al netto dei blocker, senza duplicati.
 
-    Solleva InvalidRangeError se il range è vuoto o se, dopo l'esclusione delle
-    carte note (mani proprie/board/altri avversari noti), non resta alcuna
-    combinazione utilizzabile.
+    Classi diverse non possono generare la stessa combo, ma la stessa classe
+    ripetuta nell'elenco sì: la deduplicazione è su coppie non ordinate.
     """
-    if not labels:
-        raise InvalidRangeError("il range non può essere vuoto")
-
     excluded = set(excluded_cards)
     seen: set[frozenset[Card]] = set()
     combos: list[tuple[Card, Card]] = []
@@ -73,6 +69,20 @@ def expand_range(labels: list[str], excluded_cards: list[Card]) -> list[tuple[Ca
             seen.add(key)
             combos.append((c1, c2))
 
+    return combos
+
+
+def expand_range(labels: list[str], excluded_cards: list[Card]) -> list[tuple[Card, Card]]:
+    """Espande un range (lista di classi) in combo concrete, escludendo carte già note.
+
+    Solleva InvalidRangeError se il range è vuoto o se, dopo l'esclusione delle
+    carte note (mani proprie/board/altri avversari noti), non resta alcuna
+    combinazione utilizzabile.
+    """
+    if not labels:
+        raise InvalidRangeError("il range non può essere vuoto")
+
+    combos = _usable_combos(labels, excluded_cards)
     if not combos:
         raise InvalidRangeError(
             "il range non contiene combinazioni utilizzabili: tutte bloccate dalle carte già note"
@@ -83,18 +93,8 @@ def expand_range(labels: list[str], excluded_cards: list[Card]) -> list[tuple[Ca
 def count_range_combos(labels: list[str], excluded_cards: list[Card]) -> int:
     """Numero di combo concrete rimaste in un range dopo i blocker.
 
-    A differenza di expand_range, non solleva errore se il risultato è 0:
-    per l'utente che sta ancora componendo il range è un'informazione utile
-    da mostrare ("il tuo range si è azzerato"), non un errore di input.
+    A differenza di expand_range non solleva errore se il risultato è 0: per chi
+    sta ancora componendo il range è un'informazione utile da vedere ("il tuo
+    range si è azzerato"), non un errore di input.
     """
-    if not labels:
-        return 0
-
-    excluded = set(excluded_cards)
-    seen: set[frozenset[Card]] = set()
-    for label in labels:
-        for c1, c2 in hand_class_combos(label):
-            if c1 in excluded or c2 in excluded:
-                continue
-            seen.add(frozenset((c1, c2)))
-    return len(seen)
+    return len(_usable_combos(labels, excluded_cards))

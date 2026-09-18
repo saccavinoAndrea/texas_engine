@@ -9,6 +9,7 @@ from collections import Counter
 from engine.cards import Card, full_deck, parse_cards, remaining_deck
 from engine.equity import InvalidEquityInputError, _deal_trial, _enumerate_draws, calculate_equity
 from engine.evaluator import compare_hands
+from engine.ranges import expand_range
 
 MC_ITERATIONS = 60_000
 MC_TOLERANCE = 0.02  # 2 punti percentuali: ampio margine rispetto alla std error a 60k iterazioni
@@ -106,7 +107,7 @@ def test_enumerate_draws_covers_every_board_hand_split_once():
     """
     deck = full_deck()[:10]  # mazzo ridotto: test strutturale, non serve valutare mani
 
-    draws = list(_enumerate_draws(deck, unknown_board_count=1, unknown_random_count=1))
+    draws = list(_enumerate_draws(deck, [], unknown_board_count=1, unknown_random_count=1))
 
     hands_per_board_card = 36  # C(9, 2): le mani possibili con le carte rimaste
     assert len(draws) == len(deck) * hands_per_board_card
@@ -346,16 +347,62 @@ def test_known_villain_and_ranged_villain_together():
     assert result.hero_equity + sum(result.opponents_equity) == pytest.approx(1.0, abs=1e-9)
 
 
-def test_range_on_turn_forces_monte_carlo():
-    """Un range forza sempre Monte Carlo, anche su turn/river dove normalmente
-    si userebbe l'enumerazione esatta: evita l'esplosione combinatoria."""
+def test_range_on_turn_is_enumerated_exactly():
+    """Su turn e river un range vale poche centinaia di casi: si enumerano tutti
+    invece di campionarli. Il confronto è con un riferimento indipendente che
+    combina ogni combo del range con ogni river possibile."""
     hero = parse_cards(["Ah", "As"])
     board = parse_cards(["2c", "5d", "9h", "Jd"])
 
-    result = calculate_equity(hero, board, villain_ranges=[["KK", "QQ"]], iterations=5000, rng=random.Random(22))
+    result = calculate_equity(hero, board, villain_ranges=[["KK", "QQ"]])
+
+    assert result.method == "exact_enumeration"
+    assert result.standard_error is None  # niente errore di campionamento: è esatto
+
+    pool = expand_range(["KK", "QQ"], hero + board)
+    deck = remaining_deck(hero + board)
+    hero_wins_share = 0.0
+    trials = 0
+    for villain in pool:
+        for river in [card for card in deck if card not in villain]:
+            winners = compare_hands([hero, list(villain)], board + [river])
+            if 0 in winners:
+                hero_wins_share += 1.0 / len(winners)
+            trials += 1
+
+    assert result.trials == trials
+    assert result.hero_equity == pytest.approx(hero_wins_share / trials, abs=1e-9)
+
+
+def test_range_on_river_needs_no_board_draw():
+    """Col board completo restano solo le combo del range: un caso per combo."""
+    hero = parse_cards(["Ah", "As"])
+    board = parse_cards(["2c", "5d", "9h", "Jd", "7s"])
+
+    result = calculate_equity(hero, board, villain_ranges=[["KK", "QQ"]])
+
+    assert result.method == "exact_enumeration"
+    assert result.trials == len(expand_range(["KK", "QQ"], hero + board))
+    assert result.hero_equity == 1.0  # gli assi battono sempre KK e QQ su questo board
+
+
+def test_range_preflop_still_uses_monte_carlo():
+    """Preflop il board tutto da scoprire fa esplodere le combinazioni: si campiona."""
+    hero = parse_cards(["Ah", "As"])
+
+    result = calculate_equity(hero, [], villain_ranges=[["KK", "QQ"]], iterations=5000, rng=random.Random(22))
 
     assert result.method == "monte_carlo"
     assert result.trials == 5000
+
+
+def test_exact_enumeration_rejects_ranges_that_cannot_coexist():
+    """Tre avversari con solo AA: non esistono tre coppie di assi disgiunte."""
+    hero = parse_cards(["2c", "3d"])
+    board = parse_cards(["7h", "8s", "9c", "Td", "Jh"])
+
+    with pytest.raises(InvalidEquityInputError):
+        calculate_equity(hero, board, villain_ranges=[["AA"], ["AA"], ["AA"]], num_opponents=3)
 
 
 def test_rejects_empty_range():

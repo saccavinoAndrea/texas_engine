@@ -640,6 +640,8 @@ function renderResults(equity, potOdds, ev, shoveEv, tableMetrics, impliedFuture
     shoveEl.textContent = `${shoveSign}${shoveEv.ev.toFixed(2)}`;
     shoveEl.classList.toggle("text-success", shoveEv.ev > 0);
     shoveEl.classList.toggle("text-danger", shoveEv.ev < 0);
+    // Il modello dello shove considera un solo avversario che chiama o folda.
+    document.getElementById("shoveMultiwayNote").classList.toggle("d-none", state.numOpponents < 2);
   } else {
     shoveCard.classList.add("d-none");
   }
