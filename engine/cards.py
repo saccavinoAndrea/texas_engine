@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
 
 RANKS = "23456789TJQKA"
@@ -52,8 +51,3 @@ def remaining_deck(known_cards: list[Card]) -> list[Card]:
     if len(known) != len(known_cards):
         raise InvalidCardError("carte duplicate tra quelle note")
     return [card for card in full_deck() if card not in known]
-
-
-def draw_random(deck: list[Card], count: int, rng: random.Random | None = None) -> list[Card]:
-    rng = rng or random
-    return rng.sample(deck, count)

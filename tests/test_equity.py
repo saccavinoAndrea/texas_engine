@@ -179,6 +179,25 @@ def test_river_direct_comparison_split_pot():
     assert result.tie_probability == 1.0
 
 
+def test_tie_probability_counts_only_splits_hero_is_part_of():
+    """Due avversari pareggiano tra loro e hero perde: per hero non è uno split.
+
+    La UI mostra tie_probability come "split" accanto alla propria equity, quindi
+    contare anche i pareggi fra soli avversari direbbe all'utente che sta dividendo
+    un piatto che invece sta perdendo.
+    """
+    hero = parse_cards(["2c", "2d"])
+    villain1 = parse_cards(["3c", "3d"])
+    villain2 = parse_cards(["3h", "3s"])
+    board = parse_cards(["As", "Ks", "Qd", "Jc", "9h"])
+
+    result = calculate_equity(hero, board, villain_cards=[villain1, villain2], num_opponents=2)
+
+    assert result.hero_equity == 0.0
+    assert result.opponents_equity == [0.5, 0.5]
+    assert result.tie_probability == 0.0
+
+
 def test_unknown_opponent_random_hand_preflop():
     hero = parse_cards(["Ah", "As"])
 

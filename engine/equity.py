@@ -15,7 +15,7 @@ import random
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-from engine.cards import Card, InvalidCardError, remaining_deck
+from engine.cards import Card, remaining_deck
 from engine.evaluator import compare_hands
 from engine.ranges import InvalidRangeError, expand_range
 
@@ -38,7 +38,7 @@ class InvalidEquityInputError(ValueError):
 class EquityResult:
     hero_equity: float
     opponents_equity: list[float]
-    tie_probability: float
+    tie_probability: float  # probabilità che hero divida il piatto, non di uno split qualsiasi
     method: str
     trials: int
     standard_error: float | None = None
@@ -195,10 +195,12 @@ def calculate_equity(
         players = [hero_cards, *known_villain_hands, *unknown_hands]
         winners = compare_hands(players, full_board)
         share = 1.0 / len(winners)
-        if len(winners) > 1:
-            tie_trials += 1
         if 0 in winners:
             hero_share += share
+            # Solo gli split di cui hero fa parte: un pareggio fra due avversari
+            # non è uno split per hero, che quella mano la sta perdendo e basta.
+            if len(winners) > 1:
+                tie_trials += 1
         for opp_idx in range(num_opponents):
             player_idx = opp_idx + 1
             if player_idx in winners:

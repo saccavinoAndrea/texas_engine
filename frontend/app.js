@@ -565,12 +565,27 @@ function hideError() {
 }
 
 async function postJSON(url, payload) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const body = await response.json();
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    // La shell della PWA resta navigabile dalla cache anche a server spento:
+    // senza questo messaggio l'utente vedrebbe solo un "Failed to fetch".
+    throw new Error("Server non raggiungibile: verifica che sia avviato e riprova.");
+  }
+
+  let body;
+  try {
+    body = await response.json();
+  } catch (err) {
+    // Es. la pagina di errore HTML di un proxy, tipica al risveglio del servizio
+    // dopo lo sleep del piano free.
+    throw new Error(`Risposta non valida dal server (HTTP ${response.status}). Riprova tra qualche secondo.`);
+  }
   if (!response.ok) {
     const detail = Array.isArray(body.detail)
       ? body.detail.map((d) => d.msg).join("; ")
