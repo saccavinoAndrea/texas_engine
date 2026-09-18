@@ -77,6 +77,9 @@ class EquityResponse(BaseModel):
     tie_probability: float
     method: str
     trials: int
+    standard_error: float | None = None
+    ci_low: float | None = None
+    ci_high: float | None = None
 
 
 class PotOddsRequest(BaseModel):
@@ -93,6 +96,9 @@ class EvRequest(BaseModel):
     hero_equity: float = Field(..., ge=0, le=1)
     amount_to_call: float = Field(..., ge=0)
     pot_before_call: float = Field(..., ge=0)
+    implied_future_bet: float = Field(
+        default=0.0, ge=0, description="Stima manuale di puntate future vinte in caso di showdown vinto (implied odds)."
+    )
 
 
 class EvResponse(BaseModel):
@@ -110,3 +116,38 @@ class ShoveEvRequest(BaseModel):
 class ShoveEvResponse(BaseModel):
     ev: float
     profitable: bool
+
+
+class TableMetricsRequest(BaseModel):
+    effective_stack: float = Field(..., ge=0)
+    pot_before_call: float = Field(..., ge=0)
+    amount_to_call: float = Field(..., ge=0)
+
+
+class TableMetricsResponse(BaseModel):
+    spr: float | None
+    mdf: float | None
+
+
+class RangeComboCountRequest(BaseModel):
+    labels: list[str] = Field(default_factory=list)
+    known_cards: list[str] = Field(default_factory=list)
+
+    @field_validator("labels")
+    @classmethod
+    def _validate_labels(cls, value: list[str]) -> list[str]:
+        for label in value:
+            try:
+                hand_class_combos(label)
+            except InvalidRangeError as exc:
+                raise ValueError(str(exc)) from exc
+        return value
+
+    @field_validator("known_cards")
+    @classmethod
+    def _validate_known_cards(cls, value: list[str]) -> list[str]:
+        return [_validate_card_code(c) for c in value]
+
+
+class RangeComboCountResponse(BaseModel):
+    combo_count: int

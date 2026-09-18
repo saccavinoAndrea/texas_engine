@@ -33,4 +33,7 @@ def post_equity(request: EquityRequest) -> EquityResponse:
         tie_probability=result.tie_probability,
         method=result.method,
         trials=result.trials,
+        standard_error=result.standard_error,
+        ci_low=result.ci_low,
+        ci_high=result.ci_high,
     )

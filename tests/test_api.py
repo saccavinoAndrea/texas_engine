@@ -138,6 +138,92 @@ def test_shove_ev_endpoint():
     assert body["profitable"] == (expected > 0)
 
 
+def test_ev_endpoint_with_implied_future_bet():
+    response = client.post(
+        "/api/ev",
+        json={"hero_equity": 0.4, "amount_to_call": 50, "pot_before_call": 100, "implied_future_bet": 30},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ev"] == pytest.approx(0.4 * (100 + 50 + 30) - 50)
+
+
+def test_equity_endpoint_reports_confidence_interval_for_monte_carlo():
+    payload = {
+        "hero_cards": ["Ah", "As"],
+        "board": [],
+        "villain_cards": [["Kh", "Ks"]],
+        "iterations": 5000,
+    }
+    response = client.post("/api/equity", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["standard_error"] is not None
+    assert body["ci_low"] < body["hero_equity"] < body["ci_high"]
+
+
+def test_equity_endpoint_no_confidence_interval_for_direct_comparison():
+    payload = {
+        "hero_cards": ["Ah", "Kh"],
+        "board": ["Jh", "9h", "2c", "Td", "3h"],
+        "villain_cards": [["Qc", "Qd"]],
+    }
+    response = client.post("/api/equity", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["standard_error"] is None
+    assert body["ci_low"] is None
+    assert body["ci_high"] is None
+
+
+def test_table_metrics_endpoint():
+    response = client.post(
+        "/api/table-metrics",
+        json={"effective_stack": 200, "pot_before_call": 100, "amount_to_call": 50},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["spr"] == pytest.approx(2.0)
+    assert body["mdf"] == pytest.approx(2 / 3)
+
+
+def test_table_metrics_endpoint_degrades_gracefully_when_pot_is_zero():
+    response = client.post(
+        "/api/table-metrics",
+        json={"effective_stack": 200, "pot_before_call": 0, "amount_to_call": 0},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["spr"] is None
+    assert body["mdf"] is None
+
+
+def test_range_combo_count_endpoint():
+    response = client.post(
+        "/api/range-combo-count",
+        json={"labels": ["AA", "AKs"], "known_cards": []},
+    )
+    assert response.status_code == 200
+    assert response.json()["combo_count"] == 10
+
+
+def test_range_combo_count_endpoint_accounts_for_known_cards():
+    response = client.post(
+        "/api/range-combo-count",
+        json={"labels": ["AKs"], "known_cards": ["Ah", "Ks"]},
+    )
+    assert response.status_code == 200
+    assert response.json()["combo_count"] == 2
+
+
+def test_range_combo_count_endpoint_rejects_invalid_label():
+    response = client.post(
+        "/api/range-combo-count",
+        json={"labels": ["77s"], "known_cards": []},
+    )
+    assert response.status_code == 422
+
+
 def test_shove_ev_endpoint_rejects_invalid_fold_probability():
     payload = {
         "hero_equity_if_called": 0.4,

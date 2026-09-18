@@ -257,10 +257,29 @@ function buildRangeGrid() {
   updateRangeSummary();
 }
 
-function updateRangeSummary() {
+function allPlacedCards() {
+  return Object.values(state.slots).filter(Boolean);
+}
+
+async function updateRangeSummary() {
   const idx = state.activeRangeVillain;
-  const count = state.villainRanges[idx].length;
-  document.getElementById("rangeSummary").textContent = `${count} classi selezionate`;
+  const labels = state.villainRanges[idx];
+  const count = labels.length;
+  const summaryEl = document.getElementById("rangeSummary");
+  summaryEl.textContent = `${count} classi selezionate`;
+  if (count === 0) return;
+
+  try {
+    const { combo_count } = await postJSON("/api/range-combo-count", {
+      labels,
+      known_cards: allPlacedCards(),
+    });
+    // L'utente potrebbe aver cambiato avversario/selezione mentre la richiesta era in volo.
+    if (state.activeRangeVillain !== idx) return;
+    summaryEl.textContent = `${count} classi selezionate · ${combo_count} combo utilizzabili`;
+  } catch (err) {
+    // Non blocchiamo l'uso del range picker se il conteggio combo fallisce: è solo informativo.
+  }
 }
 
 function openRangeModal(idx) {
@@ -355,6 +374,11 @@ document.getElementById("useBuyInBtn").addEventListener("click", () => {
   document.getElementById("shoveAmount").value = buyIn.toFixed(2);
 });
 
+document.getElementById("useBuyInStackBtn").addEventListener("click", () => {
+  const buyIn = parseFloat(document.getElementById("buyIn").value || "0");
+  document.getElementById("effectiveStack").value = buyIn.toFixed(2);
+});
+
 document.getElementById("enableShove").addEventListener("change", (e) => {
   document.getElementById("shoveInputs").classList.toggle("d-none", !e.target.checked);
   document.getElementById("shoveResultCard").classList.add("d-none");
@@ -434,10 +458,28 @@ async function postJSON(url, payload) {
   return body;
 }
 
-function renderResults(equity, potOdds, ev, shoveEv) {
+function renderResults(equity, potOdds, ev, shoveEv, tableMetrics) {
   document.getElementById("results").classList.remove("d-none");
   document.getElementById("heroEquity").textContent = `${(equity.hero_equity * 100).toFixed(1)}%`;
   document.getElementById("requiredEquity").textContent = `${potOdds.required_equity_percentage.toFixed(1)}%`;
+
+  const confidenceEl = document.getElementById("equityConfidence");
+  if (equity.ci_low != null && equity.ci_high != null) {
+    confidenceEl.textContent = `IC 95%: ${(equity.ci_low * 100).toFixed(1)}% - ${(equity.ci_high * 100).toFixed(1)}%`;
+    confidenceEl.classList.remove("d-none");
+  } else {
+    confidenceEl.classList.add("d-none");
+  }
+
+  const metricsRow = document.getElementById("tableMetricsRow");
+  if (tableMetrics && (tableMetrics.spr != null || tableMetrics.mdf != null)) {
+    metricsRow.classList.remove("d-none");
+    document.getElementById("sprValue").textContent = tableMetrics.spr != null ? tableMetrics.spr.toFixed(1) : "-";
+    document.getElementById("mdfValue").textContent =
+      tableMetrics.mdf != null ? `${(tableMetrics.mdf * 100).toFixed(1)}%` : "-";
+  } else {
+    metricsRow.classList.add("d-none");
+  }
 
   const evEl = document.getElementById("evValue");
   const evSign = ev.ev > 0 ? "+" : "";
@@ -497,6 +539,8 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
 
   const potBeforeCall = parseFloat(document.getElementById("potBeforeCall").value || "0");
   const amountToCall = parseFloat(document.getElementById("amountToCall").value || "0");
+  const effectiveStack = parseFloat(document.getElementById("effectiveStack").value || "0");
+  const impliedFutureBet = parseFloat(document.getElementById("impliedFutureBet").value || "0");
 
   const equityPayload = {
     hero_cards: [hero1, hero2],
@@ -506,6 +550,11 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
     num_opponents: state.numOpponents,
   };
   const potOddsPayload = { amount_to_call: amountToCall, pot_before_call: potBeforeCall };
+  const tableMetricsPayload = {
+    effective_stack: effectiveStack,
+    pot_before_call: potBeforeCall,
+    amount_to_call: amountToCall,
+  };
 
   const shoveEnabled = document.getElementById("enableShove").checked;
   let shoveAmount = 0;
@@ -524,16 +573,18 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
   btn.disabled = true;
   btn.textContent = "Calcolo...";
   try {
-    // Pot odds non dipende dall'equity: la avviamo subito invece di aspettare
-    // che l'equity (Monte Carlo, potenzialmente lenta) sia pronta.
+    // Pot odds e table-metrics non dipendono dall'equity: le avviamo subito
+    // invece di aspettare che l'equity (Monte Carlo, potenzialmente lenta) sia pronta.
     const potOddsPromise = postJSON("/api/pot-odds", potOddsPayload);
+    const tableMetricsPromise = postJSON("/api/table-metrics", tableMetricsPayload);
     const equity = await postJSON("/api/equity", equityPayload);
     const evPayload = {
       hero_equity: equity.hero_equity,
       amount_to_call: amountToCall,
       pot_before_call: potBeforeCall,
+      implied_future_bet: impliedFutureBet,
     };
-    const requests = [potOddsPromise, postJSON("/api/ev", evPayload)];
+    const requests = [potOddsPromise, tableMetricsPromise, postJSON("/api/ev", evPayload)];
     if (shoveEnabled) {
       requests.push(
         postJSON("/api/shove-ev", {
@@ -544,8 +595,8 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
         })
       );
     }
-    const [potOdds, ev, shoveEv] = await Promise.all(requests);
-    renderResults(equity, potOdds, ev, shoveEv);
+    const [potOdds, tableMetrics, ev, shoveEv] = await Promise.all(requests);
+    renderResults(equity, potOdds, ev, shoveEv, tableMetrics);
   } catch (err) {
     showError(err.message);
   } finally {

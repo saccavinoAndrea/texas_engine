@@ -13,13 +13,22 @@ class InvalidEvInputError(ValueError):
     pass
 
 
-def calculate_call_ev(hero_equity: float, amount_to_call: float, pot_before_call: float) -> float:
+def calculate_call_ev(
+    hero_equity: float,
+    amount_to_call: float,
+    pot_before_call: float,
+    implied_future_bet: float = 0.0,
+) -> float:
+    """implied_future_bet: puntate future stimate dall'utente che l'eroe
+    incasserebbe in più solo se vince a showdown (implied odds). È una stima
+    manuale come la fold_probability dello shove, non calcolata dal motore.
+    """
     if not 0.0 <= hero_equity <= 1.0:
         raise InvalidEvInputError("hero_equity deve essere compreso tra 0 e 1")
-    if amount_to_call < 0 or pot_before_call < 0:
+    if amount_to_call < 0 or pot_before_call < 0 or implied_future_bet < 0:
         raise InvalidEvInputError("importi negativi non ammessi")
 
-    pot_after_call = pot_before_call + amount_to_call
+    pot_after_call = pot_before_call + amount_to_call + implied_future_bet
     return hero_equity * pot_after_call - amount_to_call
 
 

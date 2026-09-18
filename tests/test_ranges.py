@@ -1,7 +1,7 @@
 import pytest
 
 from engine.cards import parse_cards
-from engine.ranges import InvalidRangeError, expand_range, hand_class_combos
+from engine.ranges import InvalidRangeError, count_range_combos, expand_range, hand_class_combos
 
 
 def test_pair_has_six_combos():
@@ -72,3 +72,21 @@ def test_expand_range_rejects_fully_blocked_range():
     excluded = parse_cards(["7c", "7d", "7h", "7s"])
     with pytest.raises(InvalidRangeError):
         expand_range(["77"], excluded_cards=excluded)
+
+
+def test_count_range_combos_matches_expand_range_length():
+    assert count_range_combos(["AA", "AKs"], excluded_cards=[]) == 6 + 4
+
+
+def test_count_range_combos_accounts_for_blockers():
+    excluded = parse_cards(["Ah", "Ks"])
+    assert count_range_combos(["AKs"], excluded_cards=excluded) == 2
+
+
+def test_count_range_combos_returns_zero_for_empty_range():
+    assert count_range_combos([], excluded_cards=[]) == 0
+
+
+def test_count_range_combos_returns_zero_when_fully_blocked_instead_of_raising():
+    excluded = parse_cards(["7c", "7d", "7h", "7s"])
+    assert count_range_combos(["77"], excluded_cards=excluded) == 0

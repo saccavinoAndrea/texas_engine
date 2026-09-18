@@ -10,6 +10,7 @@ combinatoria, nessun solver GTO.
 from __future__ import annotations
 
 import itertools
+import math
 import random
 from dataclasses import dataclass
 
@@ -18,6 +19,7 @@ from engine.evaluator import compare_hands
 from engine.ranges import InvalidRangeError, expand_range
 
 DEFAULT_ITERATIONS = 20_000
+CONFIDENCE_Z_SCORE = 1.96  # ~95% per una normale, valido per n grande (approssimazione di Wald)
 
 
 class InvalidEquityInputError(ValueError):
@@ -31,6 +33,9 @@ class EquityResult:
     tie_probability: float
     method: str
     trials: int
+    standard_error: float | None = None
+    ci_low: float | None = None
+    ci_high: float | None = None
 
 
 def _validate_input(
@@ -182,10 +187,24 @@ def calculate_equity(
             full_board = board + board_draw
             record_outcome(full_board, unknown_hands)
 
+    hero_equity = hero_share / trials
+    standard_error = ci_low = ci_high = None
+    if method == "monte_carlo":
+        # Approssimazione di Wald sulla proporzione stimata: valida perché il
+        # Monte Carlo usa già migliaia di iterazioni (n grande). Per i metodi
+        # esatti (direct_comparison/exact_enumeration) non c'è errore campionario:
+        # il risultato è la probabilità esatta, non una stima.
+        standard_error = math.sqrt(hero_equity * (1 - hero_equity) / trials)
+        ci_low = max(0.0, hero_equity - CONFIDENCE_Z_SCORE * standard_error)
+        ci_high = min(1.0, hero_equity + CONFIDENCE_Z_SCORE * standard_error)
+
     return EquityResult(
-        hero_equity=hero_share / trials,
+        hero_equity=hero_equity,
         opponents_equity=[s / trials for s in opponents_share],
         tie_probability=tie_trials / trials,
         method=method,
         trials=trials,
+        standard_error=standard_error,
+        ci_low=ci_low,
+        ci_high=ci_high,
     )

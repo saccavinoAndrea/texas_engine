@@ -49,6 +49,32 @@ def test_flop_flush_draw_plus_overcards_vs_overpair():
     assert result.hero_equity == pytest.approx(0.536, abs=MC_TOLERANCE)
 
 
+def test_monte_carlo_reports_confidence_interval_containing_hero_equity():
+    hero = parse_cards(["Ah", "As"])
+    villain = parse_cards(["Kh", "Ks"])
+
+    result = calculate_equity(hero, [], villain_cards=[villain], iterations=MC_ITERATIONS, rng=random.Random(1))
+
+    assert result.method == "monte_carlo"
+    assert result.standard_error is not None
+    assert result.standard_error > 0
+    assert result.ci_low < result.hero_equity < result.ci_high
+    assert 0.0 <= result.ci_low < result.ci_high <= 1.0
+
+
+def test_exact_methods_do_not_report_confidence_interval():
+    hero = parse_cards(["Ah", "Kh"])
+    villain = parse_cards(["Qc", "Qd"])
+    board = parse_cards(["Jh", "9h", "2c", "Td", "3h"])
+
+    result = calculate_equity(hero, board, villain_cards=[villain])
+
+    assert result.method == "direct_comparison"
+    assert result.standard_error is None
+    assert result.ci_low is None
+    assert result.ci_high is None
+
+
 def test_turn_uses_exact_enumeration_and_matches_reference_implementation():
     hero = parse_cards(["Ah", "Kh"])
     villain = parse_cards(["Qc", "Qd"])

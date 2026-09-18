@@ -50,6 +50,24 @@ def test_ev_rejects_negative_amounts():
         calculate_call_ev(hero_equity=0.5, amount_to_call=10, pot_before_call=-100)
 
 
+def test_ev_implied_future_bet_adds_equity_weighted_value():
+    # L'implied bet vale solo nella quota di showdown vinta (equity), non per intero.
+    ev_without = calculate_call_ev(hero_equity=0.4, amount_to_call=50, pot_before_call=100)
+    ev_with = calculate_call_ev(hero_equity=0.4, amount_to_call=50, pot_before_call=100, implied_future_bet=30)
+    assert ev_with - ev_without == pytest.approx(0.4 * 30)
+
+
+def test_ev_implied_future_bet_defaults_to_zero():
+    ev_default = calculate_call_ev(hero_equity=0.4, amount_to_call=50, pot_before_call=100)
+    ev_explicit_zero = calculate_call_ev(hero_equity=0.4, amount_to_call=50, pot_before_call=100, implied_future_bet=0)
+    assert ev_default == pytest.approx(ev_explicit_zero)
+
+
+def test_ev_rejects_negative_implied_future_bet():
+    with pytest.raises(InvalidEvInputError):
+        calculate_call_ev(hero_equity=0.5, amount_to_call=10, pot_before_call=100, implied_future_bet=-1)
+
+
 def test_shove_ev_always_folds_wins_current_pot():
     ev = calculate_shove_ev(hero_equity_if_called=0.3, fold_probability=1.0, pot_before_shove=20, shove_amount=50)
     assert ev == pytest.approx(20.0)

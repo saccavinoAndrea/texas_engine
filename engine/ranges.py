@@ -78,3 +78,23 @@ def expand_range(labels: list[str], excluded_cards: list[Card]) -> list[tuple[Ca
             "il range non contiene combinazioni utilizzabili: tutte bloccate dalle carte già note"
         )
     return combos
+
+
+def count_range_combos(labels: list[str], excluded_cards: list[Card]) -> int:
+    """Numero di combo concrete rimaste in un range dopo i blocker.
+
+    A differenza di expand_range, non solleva errore se il risultato è 0:
+    per l'utente che sta ancora componendo il range è un'informazione utile
+    da mostrare ("il tuo range si è azzerato"), non un errore di input.
+    """
+    if not labels:
+        return 0
+
+    excluded = set(excluded_cards)
+    seen: set[frozenset[Card]] = set()
+    for label in labels:
+        for c1, c2 in hand_class_combos(label):
+            if c1 in excluded or c2 in excluded:
+                continue
+            seen.add(frozenset((c1, c2)))
+    return len(seen)
