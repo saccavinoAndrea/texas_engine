@@ -33,7 +33,7 @@ Lascia questa finestra aperta: finché resta aperta, il server è attivo.
 
 ### Passo 2 — Autorizza il firewall (solo la prima volta)
 
-Windows mostrerà una finestra che chiede se consentire l'accesso alla rete a Python. Seleziona **Reti private** e conferma.
+Windows mostrerà una finestra che chiede se consentire l'accesso alla rete a Python. Spunta **entrambe** le voci (reti private e reti pubbliche) e conferma: Windows classifica da sé la rete di casa come privata o pubblica, e se autorizzi solo una delle due rischi di aver autorizzato quella sbagliata.
 
 Se per sbaglio hai cliccato "Annulla", il telefono non riuscirà a connettersi. Per rimediare, apri PowerShell **come amministratore** e lancia:
 
@@ -62,6 +62,8 @@ http://192.168.1.42:8000
 ```
 
 (sostituendo l'IP con il tuo). Deve comparire l'interfaccia di Texas Engine.
+
+**Attenzione al separatore**: fra l'IP e il numero `8000` ci vanno i **due punti** (`:`), non la barra (`/`). Scrivendo `192.168.1.42/8000` il browser cerca il sito sulla porta standard del web e non trova nulla, dando "Impossibile raggiungere il sito" anche quando il server sta funzionando perfettamente.
 
 ### Passo 5 — Prova che i calcoli funzionino davvero
 
@@ -97,11 +99,30 @@ Se non compare niente, non c'è nessun server attivo.
 
 | Sintomo | Causa probabile | Cosa fare |
 |---|---|---|
+| La pagina non si apre proprio | Indirizzo scritto con `/` invece di `:` | Riscrivilo come `http://TUO-IP:8000` |
 | La pagina non si apre proprio | Telefono e PC su reti diverse | Verifica che il telefono sia sul wifi di casa e non su dati mobili |
 | La pagina non si apre proprio | Firewall che blocca | Rifai il Passo 2 |
 | "Server non raggiungibile" premendo Calcola | Server spento o finestra chiusa | Rilancia il comando del Passo 1 |
 | Funzionava ieri, oggi no | L'IP del PC è cambiato | Rifai il Passo 3 e usa il nuovo IP |
 | Si blocca dopo qualche minuto | Il PC è andato in sospensione | Imposta il PC per non sospendersi mentre usi l'app |
+
+### Come capire se il problema è il PC o il telefono
+
+Prima di perdere tempo sul telefono, in trenta secondi puoi verificare se il PC sta facendo la sua parte. In una PowerShell nuova (lasciando aperta quella del server):
+
+```powershell
+netstat -ano | findstr ":8000"
+```
+
+Devi vedere una riga con **`0.0.0.0:8000 ... LISTENING`**. Se invece leggi `127.0.0.1:8000`, hai avviato il server senza `--host 0.0.0.0` e il telefono non potrà mai vederlo: ferma tutto e rifai il Passo 1.
+
+Poi prova a interrogare il server dal suo indirizzo di rete (usa il tuo IP):
+
+```powershell
+Invoke-WebRequest -Uri "http://192.168.1.42:8000/api/health" -UseBasicParsing
+```
+
+Se risponde `{"status":"ok"}`, il server è sano e raggiungibile: il problema sta nel telefono o nella rete, non nell'app. A quel punto controlla, in quest'ordine: l'indirizzo digitato (due punti, non barra), che il telefono sia sul wifi e non su dati mobili, e che sia sulla **stessa rete** del PC (attenzione alle reti "ospite" del router, che per sicurezza isolano i dispositivi fra loro e impediscono al telefono di vedere il PC).
 
 ---
 
