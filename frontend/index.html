@@ -16,6 +16,28 @@
     <h1 class="h5 text-center mb-3">Texas Engine</h1>
 
     <section class="mb-3">
+      <button class="btn btn-outline-secondary btn-sm w-100" type="button" data-bs-toggle="collapse" data-bs-target="#tableConfigCollapse">
+        Configurazione tavolo
+      </button>
+      <div class="collapse mt-2" id="tableConfigCollapse">
+        <div class="row g-2">
+          <div class="col-4">
+            <label class="form-label text-secondary text-uppercase small mb-1" for="buyIn">Buy-in (€)</label>
+            <input type="number" inputmode="decimal" class="form-control" id="buyIn" value="10" min="0" step="0.5">
+          </div>
+          <div class="col-4">
+            <label class="form-label text-secondary text-uppercase small mb-1" for="smallBlind">SB (€)</label>
+            <input type="number" inputmode="decimal" class="form-control" id="smallBlind" value="0.05" min="0" step="0.01">
+          </div>
+          <div class="col-4">
+            <label class="form-label text-secondary text-uppercase small mb-1" for="bigBlind">BB (€)</label>
+            <input type="number" inputmode="decimal" class="form-control" id="bigBlind" value="0.10" min="0" step="0.01">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-3">
       <h2 class="h6 text-uppercase text-secondary">Le tue carte</h2>
       <div class="d-flex gap-2">
         <button type="button" class="card-slot" data-slot="hero1">+</button>
@@ -55,15 +77,41 @@
       <div class="form-text">Per ogni avversario indica le carte solo se le conosci: gli altri restano a mano ignota/random.</div>
     </section>
 
+    <section class="mb-3">
+      <h2 class="h6 text-uppercase text-secondary">Posizioni</h2>
+      <div id="positionsContainer" class="row g-2"></div>
+    </section>
+
     <section class="mb-3 row g-2">
       <div class="col-6">
         <label for="potBeforeCall" class="form-label text-secondary text-uppercase small mb-1">Piatto</label>
-        <input type="number" inputmode="decimal" class="form-control form-control-lg" id="potBeforeCall" placeholder="0" min="0" step="0.5">
+        <div class="input-group">
+          <input type="number" inputmode="decimal" class="form-control form-control-lg" id="potBeforeCall" placeholder="0" min="0" step="0.5">
+          <button class="btn btn-outline-secondary" type="button" id="useBlindsBtn" title="Usa SB+BB come piatto iniziale">SB+BB</button>
+        </div>
       </div>
       <div class="col-6">
         <label for="amountToCall" class="form-label text-secondary text-uppercase small mb-1">Da chiamare</label>
         <input type="number" inputmode="decimal" class="form-control form-control-lg" id="amountToCall" placeholder="0" min="0" step="0.5">
       </div>
+    </section>
+
+    <section class="mb-3">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" role="switch" id="enableShove">
+        <label class="form-check-label" for="enableShove">Simula shove (all-in) con fold equity</label>
+      </div>
+      <div class="row g-2 mt-1 d-none" id="shoveInputs">
+        <div class="col-6">
+          <label class="form-label text-secondary text-uppercase small mb-1" for="shoveAmount">Importo shove (€)</label>
+          <input type="number" inputmode="decimal" class="form-control" id="shoveAmount" placeholder="0" min="0" step="0.5">
+        </div>
+        <div class="col-6">
+          <label class="form-label text-secondary text-uppercase small mb-1" for="foldProbability">Fold % stimata</label>
+          <input type="number" inputmode="decimal" class="form-control" id="foldProbability" placeholder="40" min="0" max="100" step="1">
+        </div>
+      </div>
+      <div class="form-text">La percentuale di fold è una tua stima/lettura sull'avversario, non calcolata dal motore.</div>
     </section>
 
     <div class="d-grid mb-3">
@@ -90,6 +138,10 @@
       <div class="result-card text-center mb-2">
         <div class="result-label">EV della chiamata</div>
         <div class="result-value" id="evValue">-</div>
+      </div>
+      <div class="result-card text-center mb-2 d-none" id="shoveResultCard">
+        <div class="result-label">EV dello shove</div>
+        <div class="result-value" id="shoveEvValue">-</div>
       </div>
       <div id="verdict" class="alert text-center fw-bold" role="alert">-</div>
       <div class="text-secondary small text-center" id="meta"></div>

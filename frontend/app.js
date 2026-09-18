@@ -57,12 +57,14 @@ const state = {
   villainKnown: initialVillainKnown(),
   numOpponents: 1,
   activeSlot: null,
+  positions: { dealer: "hero", sb: "hero", bb: "villain1" },
 };
 
 const pickerModalEl = document.getElementById("cardPickerModal");
 const pickerModal = new bootstrap.Modal(pickerModalEl);
 const pickerGrid = document.getElementById("pickerGrid");
 const villainsContainer = document.getElementById("villainsContainer");
+const positionsContainer = document.getElementById("positionsContainer");
 
 function usedCards(excludeSlot) {
   return Object.entries(state.slots)
@@ -180,6 +182,40 @@ villainsContainer.addEventListener("change", (e) => {
   renderVillains();
 });
 
+function playerOptionsHTML(selectedValue) {
+  let html = `<option value="hero" ${selectedValue === "hero" ? "selected" : ""}>Io</option>`;
+  for (let i = 1; i <= state.numOpponents; i++) {
+    html += `<option value="villain${i}" ${selectedValue === `villain${i}` ? "selected" : ""}>Avversario ${i}</option>`;
+  }
+  return html;
+}
+
+function renderPositions() {
+  const roles = [
+    { key: "dealer", label: "Dealer" },
+    { key: "sb", label: "Small Blind" },
+    { key: "bb", label: "Big Blind" },
+  ];
+  positionsContainer.innerHTML = roles
+    .map(
+      (role) => `
+        <div class="col-4">
+          <label class="form-label text-secondary text-uppercase small mb-1" for="position-${role.key}">${role.label}</label>
+          <select class="form-select form-select-sm position-select" id="position-${role.key}" data-role="${role.key}">
+            ${playerOptionsHTML(state.positions[role.key])}
+          </select>
+        </div>
+      `
+    )
+    .join("");
+}
+
+positionsContainer.addEventListener("change", (e) => {
+  const select = e.target.closest(".position-select");
+  if (!select) return;
+  state.positions[select.dataset.role] = select.value;
+});
+
 document.getElementById("tableSize").addEventListener("change", (e) => {
   const tableSize = parseInt(e.target.value, 10);
   state.numOpponents = tableSize - 1;
@@ -189,6 +225,18 @@ document.getElementById("tableSize").addEventListener("change", (e) => {
     state.slots[`villain${i}_2`] = null;
   }
   renderVillains();
+  renderPositions();
+});
+
+document.getElementById("useBlindsBtn").addEventListener("click", () => {
+  const sb = parseFloat(document.getElementById("smallBlind").value || "0");
+  const bb = parseFloat(document.getElementById("bigBlind").value || "0");
+  document.getElementById("potBeforeCall").value = (sb + bb).toFixed(2);
+});
+
+document.getElementById("enableShove").addEventListener("change", (e) => {
+  document.getElementById("shoveInputs").classList.toggle("d-none", !e.target.checked);
+  document.getElementById("shoveResultCard").classList.add("d-none");
 });
 
 function collectBoard() {
@@ -252,7 +300,7 @@ async function postJSON(url, payload) {
   return body;
 }
 
-function renderResults(equity, potOdds, ev) {
+function renderResults(equity, potOdds, ev, shoveEv) {
   document.getElementById("results").classList.remove("d-none");
   document.getElementById("heroEquity").textContent = `${(equity.hero_equity * 100).toFixed(1)}%`;
   document.getElementById("requiredEquity").textContent = `${potOdds.required_equity_percentage.toFixed(1)}%`;
@@ -263,9 +311,22 @@ function renderResults(equity, potOdds, ev) {
   evEl.classList.toggle("text-success", ev.ev > 0);
   evEl.classList.toggle("text-danger", ev.ev < 0);
 
+  const shoveCard = document.getElementById("shoveResultCard");
+  if (shoveEv) {
+    shoveCard.classList.remove("d-none");
+    const shoveEl = document.getElementById("shoveEvValue");
+    const shoveSign = shoveEv.ev > 0 ? "+" : "";
+    shoveEl.textContent = `${shoveSign}${shoveEv.ev.toFixed(2)}`;
+    shoveEl.classList.toggle("text-success", shoveEv.ev > 0);
+    shoveEl.classList.toggle("text-danger", shoveEv.ev < 0);
+  } else {
+    shoveCard.classList.add("d-none");
+  }
+
   const verdict = document.getElementById("verdict");
-  const profitable = ev.profitable;
-  verdict.textContent = profitable ? "Call profittevole (EV positivo)" : "Call in perdita (EV negativo)";
+  const profitable = shoveEv ? shoveEv.profitable : ev.profitable;
+  const verdictLabel = shoveEv ? "shove" : "call";
+  verdict.textContent = profitable ? `EV positivo (${verdictLabel})` : `EV negativo (${verdictLabel})`;
   verdict.className = `alert text-center fw-bold ${profitable ? "alert-success" : "alert-danger"}`;
 
   const methodLabels = {
@@ -309,6 +370,19 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
   };
   const potOddsPayload = { amount_to_call: amountToCall, pot_before_call: potBeforeCall };
 
+  const shoveEnabled = document.getElementById("enableShove").checked;
+  let shoveAmount = 0;
+  let foldProbability = 0;
+  if (shoveEnabled) {
+    shoveAmount = parseFloat(document.getElementById("shoveAmount").value || "0");
+    const foldPercentage = parseFloat(document.getElementById("foldProbability").value || "0");
+    if (foldPercentage < 0 || foldPercentage > 100) {
+      showError("La fold % deve essere tra 0 e 100");
+      return;
+    }
+    foldProbability = foldPercentage / 100;
+  }
+
   const btn = document.getElementById("calcolaBtn");
   btn.disabled = true;
   btn.textContent = "Calcolo...";
@@ -319,11 +393,19 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
       amount_to_call: amountToCall,
       pot_before_call: potBeforeCall,
     };
-    const [potOdds, ev] = await Promise.all([
-      postJSON("/api/pot-odds", potOddsPayload),
-      postJSON("/api/ev", evPayload),
-    ]);
-    renderResults(equity, potOdds, ev);
+    const requests = [postJSON("/api/pot-odds", potOddsPayload), postJSON("/api/ev", evPayload)];
+    if (shoveEnabled) {
+      requests.push(
+        postJSON("/api/shove-ev", {
+          hero_equity_if_called: equity.hero_equity,
+          fold_probability: foldProbability,
+          pot_before_shove: potBeforeCall,
+          shove_amount: shoveAmount,
+        })
+      );
+    }
+    const [potOdds, ev, shoveEv] = await Promise.all(requests);
+    renderResults(equity, potOdds, ev, shoveEv);
   } catch (err) {
     showError(err.message);
   } finally {
@@ -334,6 +416,7 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
 
 renderAllSlots();
 renderVillains();
+renderPositions();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

@@ -78,3 +78,15 @@ class EvRequest(BaseModel):
 class EvResponse(BaseModel):
     ev: float
     profitable: bool
+
+
+class ShoveEvRequest(BaseModel):
+    hero_equity_if_called: float = Field(..., ge=0, le=1)
+    fold_probability: float = Field(..., ge=0, le=1)
+    pot_before_shove: float = Field(..., ge=0)
+    shove_amount: float = Field(..., ge=0)
+
+
+class ShoveEvResponse(BaseModel):
+    ev: float
+    profitable: bool

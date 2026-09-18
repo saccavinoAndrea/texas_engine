@@ -93,3 +93,31 @@ def test_ev_endpoint_not_profitable():
 def test_ev_endpoint_rejects_equity_out_of_range():
     response = client.post("/api/ev", json={"hero_equity": 1.2, "amount_to_call": 50, "pot_before_call": 100})
     assert response.status_code == 422
+
+
+def test_shove_ev_endpoint():
+    payload = {
+        "hero_equity_if_called": 0.4,
+        "fold_probability": 0.3,
+        "pot_before_shove": 20,
+        "shove_amount": 50,
+    }
+    response = client.post("/api/shove-ev", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    ev_if_fold = 20.0
+    ev_if_called = 0.4 * (20 + 2 * 50) - 50
+    expected = 0.3 * ev_if_fold + 0.7 * ev_if_called
+    assert body["ev"] == pytest.approx(expected)
+    assert body["profitable"] == (expected > 0)
+
+
+def test_shove_ev_endpoint_rejects_invalid_fold_probability():
+    payload = {
+        "hero_equity_if_called": 0.4,
+        "fold_probability": 1.2,
+        "pot_before_shove": 20,
+        "shove_amount": 50,
+    }
+    response = client.post("/api/shove-ev", json=payload)
+    assert response.status_code == 422
