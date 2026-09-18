@@ -22,15 +22,24 @@
       <div class="collapse mt-2" id="tableConfigCollapse">
         <div class="row g-2">
           <div class="col-4">
-            <label class="form-label text-secondary text-uppercase small mb-1" for="buyIn">Buy-in (€)</label>
+            <div class="field-label">
+              <label class="form-label text-secondary text-uppercase small mb-0" for="buyIn">Buy-in (€)</label>
+              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Buy-in" data-bs-content="Le fiches con cui sei entrato al tavolo. È solo un riferimento (es. scorciatoia per stack effettivo o importo shove): non entra nei calcoli di equity.">i</button>
+            </div>
             <input type="number" inputmode="decimal" class="form-control" id="buyIn" value="10" min="0" step="0.5">
           </div>
           <div class="col-4">
-            <label class="form-label text-secondary text-uppercase small mb-1" for="smallBlind">SB (€)</label>
+            <div class="field-label">
+              <label class="form-label text-secondary text-uppercase small mb-0" for="smallBlind">SB (€)</label>
+              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Small Blind" data-bs-content="Puntata obbligatoria minore, postata dal giocatore alla sinistra del dealer. Usata per la scorciatoia 'SB+BB' sul piatto iniziale.">i</button>
+            </div>
             <input type="number" inputmode="decimal" class="form-control" id="smallBlind" value="0.05" min="0" step="0.01">
           </div>
           <div class="col-4">
-            <label class="form-label text-secondary text-uppercase small mb-1" for="bigBlind">BB (€)</label>
+            <div class="field-label">
+              <label class="form-label text-secondary text-uppercase small mb-0" for="bigBlind">BB (€)</label>
+              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Big Blind" data-bs-content="Puntata obbligatoria maggiore, di norma il doppio della SB. Insieme alla SB forma il piatto iniziale di ogni mano.">i</button>
+            </div>
             <input type="number" inputmode="decimal" class="form-control" id="bigBlind" value="0.10" min="0" step="0.01">
           </div>
         </div>
@@ -38,7 +47,10 @@
     </section>
 
     <section class="mb-3">
-      <h2 class="h6 text-uppercase text-secondary">Le tue carte</h2>
+      <div class="field-label">
+        <h2 class="h6 text-uppercase text-secondary mb-0">Le tue carte</h2>
+        <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Le tue carte" data-bs-content="Le due carte coperte che hai in mano (hole cards). Sono la base di ogni calcolo di equity.">i</button>
+      </div>
       <div class="d-flex gap-2">
         <button type="button" class="card-slot" data-slot="hero1">+</button>
         <button type="button" class="card-slot" data-slot="hero2">+</button>
@@ -46,7 +58,10 @@
     </section>
 
     <section class="mb-3">
-      <h2 class="h6 text-uppercase text-secondary">Board</h2>
+      <div class="field-label">
+        <h2 class="h6 text-uppercase text-secondary mb-0">Board</h2>
+        <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Board" data-bs-content="Le carte comuni scoperte al centro del tavolo. Vuoto = preflop, 3 carte = flop, 4 = turn, 5 = river. Vanno inserite in ordine: prima il flop completo, poi il turn, poi il river.">i</button>
+      </div>
       <div class="d-flex gap-2 flex-wrap">
         <button type="button" class="card-slot" data-slot="flop1">+</button>
         <button type="button" class="card-slot" data-slot="flop2">+</button>
@@ -58,7 +73,10 @@
     </section>
 
     <section class="mb-3">
-      <label for="tableSize" class="form-label text-secondary text-uppercase small mb-1">Giocatori al tavolo (te incluso)</label>
+      <div class="field-label">
+        <label for="tableSize" class="form-label text-secondary text-uppercase small mb-0">Giocatori al tavolo (te incluso)</label>
+        <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Giocatori al tavolo" data-bs-content="Quanti giocatori sono ancora in mano, te incluso. Determina quanti avversari servono nel calcolo dell'equity (multi-way).">i</button>
+      </div>
       <select id="tableSize" class="form-select">
         <option value="2" selected>2 (heads-up)</option>
         <option value="3">3</option>
@@ -72,34 +90,49 @@
     </section>
 
     <section class="mb-3">
-      <h2 class="h6 text-uppercase text-secondary">Avversari</h2>
+      <div class="field-label">
+        <h2 class="h6 text-uppercase text-secondary mb-0">Avversari</h2>
+        <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Avversari" data-bs-content="Per ciascun avversario scegli come trattarlo: Ignoto (mano casuale sconosciuta), Note (conosci le sue 2 carte esatte), Range (una tua stima delle mani plausibili, es. 'apre con AA-QQ, AKs'). Il range non è mai calcolato dal motore: è sempre una tua lettura.">i</button>
+      </div>
       <div id="villainsContainer"></div>
       <div class="form-text">Per ogni avversario scegli: ignoto/random, carte note, oppure un range di mani che ritieni plausibile.</div>
     </section>
 
     <section class="mb-3">
-      <h2 class="h6 text-uppercase text-secondary">Posizioni</h2>
+      <div class="field-label">
+        <h2 class="h6 text-uppercase text-secondary mb-0">Posizioni</h2>
+        <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Posizioni" data-bs-content="Dealer, small blind e big blind al tavolo. Solo di riferimento per tenere traccia della mano: non influenzano nessun calcolo.">i</button>
+      </div>
       <div id="positionsContainer" class="row g-2"></div>
       <div class="form-text">Solo di riferimento: non influenzano i calcoli, utili per tenere traccia del tavolo.</div>
     </section>
 
     <section class="mb-3 row g-2">
       <div class="col-6">
-        <label for="potBeforeCall" class="form-label text-secondary text-uppercase small mb-1">Piatto</label>
+        <div class="field-label">
+          <label for="potBeforeCall" class="form-label text-secondary text-uppercase small mb-0">Piatto</label>
+          <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Piatto" data-bs-content="Il piatto totale già presente prima della tua decisione (include le puntate già fatte in questo giro). Usato per l'equity richiesta e l'EV della chiamata.">i</button>
+        </div>
         <div class="input-group">
           <input type="number" inputmode="decimal" class="form-control form-control-lg" id="potBeforeCall" placeholder="0" min="0" step="0.5">
           <button class="btn btn-outline-secondary" type="button" id="useBlindsBtn" title="Usa SB+BB come piatto iniziale">SB+BB</button>
         </div>
       </div>
       <div class="col-6">
-        <label for="amountToCall" class="form-label text-secondary text-uppercase small mb-1">Da chiamare</label>
+        <div class="field-label">
+          <label for="amountToCall" class="form-label text-secondary text-uppercase small mb-0">Da chiamare</label>
+          <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Da chiamare" data-bs-content="L'importo che devi mettere per pareggiare la puntata avversaria. Più è alto rispetto al piatto, più equity ti serve perché la chiamata sia profittevole.">i</button>
+        </div>
         <input type="number" inputmode="decimal" class="form-control form-control-lg" id="amountToCall" placeholder="0" min="0" step="0.5">
       </div>
     </section>
 
     <section class="mb-3 row g-2">
       <div class="col-6">
-        <label for="effectiveStack" class="form-label text-secondary text-uppercase small mb-1">Stack effettivo (€)</label>
+        <div class="field-label">
+          <label for="effectiveStack" class="form-label text-secondary text-uppercase small mb-0">Stack effettivo (€)</label>
+          <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Stack effettivo" data-bs-content="Lo stack più corto tra te e l'avversario (quanto puoi realisticamente vincere/perdere nella mano). Usato per calcolare l'SPR.">i</button>
+        </div>
         <div class="input-group">
           <input type="number" inputmode="decimal" class="form-control" id="effectiveStack" placeholder="0" min="0" step="0.5">
           <button class="btn btn-outline-secondary" type="button" id="useBuyInStackBtn" title="Usa il buy-in come stack">Buy-in</button>
@@ -107,27 +140,37 @@
         <div class="form-text">Per l'SPR (stack-to-pot ratio).</div>
       </div>
       <div class="col-6">
-        <label for="impliedFutureBet" class="form-label text-secondary text-uppercase small mb-1">Implied odds (€)</label>
+        <div class="field-label">
+          <label for="impliedFutureBet" class="form-label text-secondary text-uppercase small mb-0">Implied odds (€)</label>
+          <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Implied odds" data-bs-content="Una tua stima di quanto potresti vincere in più nei giri successivi se completi la mano. Viene sommato al piatto (pesato per la tua equity) nel calcolo dell'EV della chiamata: è una stima manuale tua, non calcolata dal motore.">i</button>
+        </div>
         <input type="number" inputmode="decimal" class="form-control" id="impliedFutureBet" placeholder="0" min="0" step="0.5">
         <div class="form-text">Puntate future stimate se vinci a showdown.</div>
       </div>
     </section>
 
     <section class="mb-3">
-      <div class="form-check form-switch">
+      <div class="form-check form-switch d-flex align-items-center gap-1">
         <input class="form-check-input" type="checkbox" role="switch" id="enableShove">
         <label class="form-check-label" for="enableShove">Simula shove (all-in) con fold equity</label>
+        <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Simula shove" data-bs-content="Calcola l'EV di un all-in invece di una semplice chiamata, tenendo conto anche della probabilità che l'avversario folderebbe.">i</button>
       </div>
       <div class="row g-2 mt-1 d-none" id="shoveInputs">
         <div class="col-6">
-          <label class="form-label text-secondary text-uppercase small mb-1" for="shoveAmount">Importo shove (€)</label>
+          <div class="field-label">
+            <label class="form-label text-secondary text-uppercase small mb-0" for="shoveAmount">Importo shove (€)</label>
+            <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Importo shove" data-bs-content="Quanto punti se vai all-in.">i</button>
+          </div>
           <div class="input-group">
             <input type="number" inputmode="decimal" class="form-control" id="shoveAmount" placeholder="0" min="0" step="0.5">
             <button class="btn btn-outline-secondary" type="button" id="useBuyInBtn" title="Usa il buy-in come importo shove">Buy-in</button>
           </div>
         </div>
         <div class="col-6">
-          <label class="form-label text-secondary text-uppercase small mb-1" for="foldProbability">Fold % stimata</label>
+          <div class="field-label">
+            <label class="form-label text-secondary text-uppercase small mb-0" for="foldProbability">Fold % stimata</label>
+            <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Fold % stimata" data-bs-content="Una tua stima soggettiva di quanto spesso l'avversario folderebbe a questo shove: è una lettura tua sull'avversario, non calcolata dal motore (nessun solver GTO).">i</button>
+          </div>
           <input type="number" inputmode="decimal" class="form-control" id="foldProbability" placeholder="40" min="0" max="100" step="1">
         </div>
       </div>
@@ -144,42 +187,63 @@
       <div class="row g-2 text-center mb-2">
         <div class="col-6">
           <div class="result-card">
-            <div class="result-label">Tua equity</div>
+            <div class="field-label justify-content-center">
+              <div class="result-label mb-0">Tua equity</div>
+              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Tua equity" data-bs-content="La probabilità stimata che la tua mano vinca (o splitti) a showdown contro gli avversari indicati. Su preflop/flop è una stima Monte Carlo con relativo intervallo di confidenza al 95%; su turn/river con mani chiuse è calcolata esattamente.">i</button>
+            </div>
             <div class="result-value" id="heroEquity">-</div>
             <div class="text-secondary small d-none" id="equityConfidence"></div>
           </div>
         </div>
         <div class="col-6">
           <div class="result-card">
-            <div class="result-label">Equity richiesta</div>
+            <div class="field-label justify-content-center">
+              <div class="result-label mb-0">Equity richiesta</div>
+              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Equity richiesta" data-bs-content="L'equity minima che ti serve per essere in pareggio secondo le pot odds: piatto / (piatto + importo da chiamare). Se la tua equity la supera, la chiamata è profittevole.">i</button>
+            </div>
             <div class="result-value" id="requiredEquity">-</div>
           </div>
         </div>
       </div>
       <div class="result-card text-center mb-2">
-        <div class="result-label">EV della chiamata</div>
+        <div class="field-label justify-content-center">
+          <div class="result-label mb-0">EV della chiamata</div>
+          <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="EV della chiamata" data-bs-content="Il valore atteso in € della chiamata: equity × (piatto dopo la chiamata, incluse eventuali implied odds) − importo da chiamare. Positivo = chiamata profittevole nel lungo periodo.">i</button>
+        </div>
         <div class="result-value" id="evValue">-</div>
       </div>
       <div class="row g-2 text-center mb-2 d-none" id="tableMetricsRow">
         <div class="col-6">
           <div class="result-card">
-            <div class="result-label">SPR</div>
+            <div class="field-label justify-content-center">
+              <div class="result-label mb-0">SPR</div>
+              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="SPR" data-bs-content="Stack-to-pot ratio: stack effettivo / piatto. Basso (sotto 3) = decisioni più semplici, spesso o fold o all-in; alto = più spazio di manovra postflop.">i</button>
+            </div>
             <div class="result-value" id="sprValue">-</div>
           </div>
         </div>
         <div class="col-6">
           <div class="result-card">
-            <div class="result-label">MDF</div>
+            <div class="field-label justify-content-center">
+              <div class="result-label mb-0">MDF</div>
+              <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="MDF" data-bs-content="Minimum Defense Frequency: piatto / (piatto + puntata). La frequenza minima con cui dovresti continuare contro questa size per non essere sfruttabile da bluff sistematici.">i</button>
+            </div>
             <div class="result-value" id="mdfValue">-</div>
           </div>
         </div>
       </div>
       <div class="result-card text-center mb-2 d-none" id="shoveResultCard">
-        <div class="result-label">EV dello shove</div>
+        <div class="field-label justify-content-center">
+          <div class="result-label mb-0">EV dello shove</div>
+          <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="EV dello shove" data-bs-content="Valore atteso dell'all-in: combina la probabilità di fold (vinci subito il piatto) e quella di call (si gioca a showdown per piatto + 2× shove).">i</button>
+        </div>
         <div class="result-value" id="shoveEvValue">-</div>
       </div>
       <div id="verdict" class="alert text-center fw-bold" role="alert">-</div>
-      <div class="text-secondary small text-center" id="meta"></div>
+      <div class="text-secondary small text-center d-flex align-items-center justify-content-center gap-1" id="metaRow">
+        <span id="meta"></span>
+        <button type="button" class="info-btn" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="top" data-bs-title="Metodo di calcolo" data-bs-content="Monte Carlo: stima su tante simulazioni casuali (preflop/flop, o range). Enumerazione esatta: tutte le combinazioni residue una per una (turn/river senza range). Confronto diretto: mani già chiuse, nessuna carta da scoprire (river completo).">i</button>
+      </div>
     </section>
   </div>
 
@@ -207,6 +271,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="rangeModalTitle">Range avversario</h5>
+          <button type="button" class="info-btn me-2" tabindex="0" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" data-bs-title="Range" data-bs-content="Tocca le classi di mano che pensi possa avere (es. AA, AKs, QJo). Ogni classe vale più combinazioni concrete di carte; il conteggio combo qui sotto scende se alcune sono già bloccate dalle tue carte, dal board o dalle carte note di altri avversari.">i</button>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">

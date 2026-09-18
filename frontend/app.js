@@ -609,6 +609,10 @@ renderAllSlots();
 renderVillains();
 renderPositions();
 
+// Icone "i" informative: popover al tocco (trigger "focus" invece di "hover",
+// così funzionano anche su smartphone) che si chiudono toccando altrove.
+document.querySelectorAll('[data-bs-toggle="popover"]').forEach((el) => new bootstrap.Popover(el));
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/service-worker.js").catch(() => {});

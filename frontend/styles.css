@@ -105,3 +105,40 @@ body {
 .villain-mode-btn.active {
   color: #fff;
 }
+
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.info-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #6c757d;
+  background: transparent;
+  color: #adb5bd;
+  font-size: 0.65rem;
+  font-style: italic;
+  font-weight: 700;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1;
+  padding: 0;
+}
+
+.info-btn:hover,
+.info-btn:focus {
+  color: #fff;
+  border-color: #adb5bd;
+  outline: none;
+}
+
+.popover {
+  max-width: 260px;
+}
