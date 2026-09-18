@@ -20,6 +20,7 @@ def post_equity(request: EquityRequest) -> EquityResponse:
             hero_cards=hero_cards,
             board=board,
             villain_cards=villain_cards,
+            villain_ranges=request.villain_ranges,
             num_opponents=request.num_opponents,
             iterations=request.iterations,
         )

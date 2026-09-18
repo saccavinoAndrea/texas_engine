@@ -71,3 +71,37 @@ body {
   font-size: 2rem;
   font-weight: 700;
 }
+
+.range-grid {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  gap: 2px;
+}
+
+.range-cell {
+  aspect-ratio: 1 / 1;
+  border: 1px solid #2b3038;
+  border-radius: 3px;
+  background-color: #1c2128;
+  color: #adb5bd;
+  font-size: 0.55rem;
+  font-weight: 600;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.range-cell.pair {
+  background-color: #24303c;
+}
+
+.range-cell.selected {
+  background-color: #146c43;
+  color: #fff;
+  border-color: #1f8a56;
+}
+
+.villain-mode-btn.active {
+  color: #fff;
+}

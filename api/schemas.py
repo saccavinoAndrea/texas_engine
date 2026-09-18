@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from engine.cards import Card, InvalidCardError
 from engine.equity import DEFAULT_ITERATIONS
+from engine.ranges import InvalidRangeError, hand_class_combos
 
 
 def _validate_card_code(code: str) -> str:
@@ -22,6 +23,10 @@ class EquityRequest(BaseModel):
     villain_cards: list[list[str]] | None = Field(
         default=None,
         description="Mani avversarie note (0..num_opponents). Gli avversari non specificati sono mano ignota/random.",
+    )
+    villain_ranges: list[list[str]] | None = Field(
+        default=None,
+        description="Range per altri avversari (es. [['AA','KK','AKs']]), assegnati dopo quelli a mano nota.",
     )
     num_opponents: int = Field(default=1, ge=1, le=8)
     iterations: int = Field(default=DEFAULT_ITERATIONS, ge=1000, le=200_000)
@@ -48,6 +53,21 @@ class EquityRequest(BaseModel):
                 raise ValueError("ogni mano avversaria deve avere esattamente 2 carte")
             for c in hand:
                 _validate_card_code(c)
+        return value
+
+    @field_validator("villain_ranges")
+    @classmethod
+    def _validate_villain_ranges(cls, value: list[list[str]] | None) -> list[list[str]] | None:
+        if value is None:
+            return None
+        for labels in value:
+            if not labels:
+                raise ValueError("ogni range deve contenere almeno una classe di mano")
+            for label in labels:
+                try:
+                    hand_class_combos(label)
+                except InvalidRangeError as exc:
+                    raise ValueError(str(exc)) from exc
         return value
 
 

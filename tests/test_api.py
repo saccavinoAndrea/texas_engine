@@ -45,6 +45,32 @@ def test_equity_endpoint_rejects_invalid_card():
     assert response.status_code == 422
 
 
+def test_equity_endpoint_villain_range():
+    payload = {
+        "hero_cards": ["Ah", "As"],
+        "board": [],
+        "villain_ranges": [["KK", "QQ", "AKs"]],
+        "iterations": 5000,
+    }
+    response = client.post("/api/equity", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["method"] == "monte_carlo"
+    assert 0.75 < body["hero_equity"] < 0.90
+
+
+def test_equity_endpoint_rejects_invalid_range_label():
+    payload = {"hero_cards": ["Ah", "As"], "board": [], "villain_ranges": [["77s"]]}
+    response = client.post("/api/equity", json=payload)
+    assert response.status_code == 422
+
+
+def test_equity_endpoint_rejects_empty_range():
+    payload = {"hero_cards": ["Ah", "As"], "board": [], "villain_ranges": [[]]}
+    response = client.post("/api/equity", json=payload)
+    assert response.status_code == 422
+
+
 def test_equity_endpoint_rejects_invalid_board_length():
     payload = {"hero_cards": ["Ah", "Kh"], "board": ["2c", "3d"]}
     response = client.post("/api/equity", json=payload)

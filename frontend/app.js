@@ -46,17 +46,25 @@ function initialSlots() {
   return slots;
 }
 
-function initialVillainKnown() {
-  const known = {};
-  for (let i = 1; i <= MAX_OPPONENTS; i++) known[i] = false;
-  return known;
+function initialVillainModes() {
+  const modes = {};
+  for (let i = 1; i <= MAX_OPPONENTS; i++) modes[i] = "unknown";
+  return modes;
+}
+
+function initialVillainRanges() {
+  const ranges = {};
+  for (let i = 1; i <= MAX_OPPONENTS; i++) ranges[i] = [];
+  return ranges;
 }
 
 const state = {
   slots: initialSlots(),
-  villainKnown: initialVillainKnown(),
+  villainMode: initialVillainModes(), // "unknown" | "known" | "range"
+  villainRanges: initialVillainRanges(),
   numOpponents: 1,
   activeSlot: null,
+  activeRangeVillain: null,
   positions: { dealer: "hero", sb: "hero", bb: "villain1" },
 };
 
@@ -65,6 +73,9 @@ const pickerModal = new bootstrap.Modal(pickerModalEl);
 const pickerGrid = document.getElementById("pickerGrid");
 const villainsContainer = document.getElementById("villainsContainer");
 const positionsContainer = document.getElementById("positionsContainer");
+const rangeModalEl = document.getElementById("rangeModal");
+const rangeModal = new bootstrap.Modal(rangeModalEl);
+const rangeGrid = document.getElementById("rangeGrid");
 
 function usedCards(excludeSlot) {
   return Object.entries(state.slots)
@@ -142,43 +153,147 @@ document.addEventListener("click", (e) => {
   }
 });
 
+const VILLAIN_MODES = [
+  { key: "unknown", label: "Ignoto" },
+  { key: "known", label: "Note" },
+  { key: "range", label: "Range" },
+];
+
 function renderVillains() {
   let html = "";
   for (let i = 1; i <= state.numOpponents; i++) {
-    const known = state.villainKnown[i];
-    html += `
-      <div class="villain-row mb-2 pb-2 border-bottom border-secondary-subtle">
-        <div class="d-flex justify-content-between align-items-center">
-          <span class="text-secondary small">Avversario ${i}</span>
-          <div class="form-check form-switch mb-0">
-            <input class="form-check-input villain-known-toggle" type="checkbox" role="switch"
-                   data-villain="${i}" id="villainKnown${i}" ${known ? "checked" : ""}>
-            <label class="form-check-label small" for="villainKnown${i}">Conosco le carte</label>
-          </div>
-        </div>
-        <div class="d-flex gap-2 mt-2 ${known ? "" : "d-none"}">
+    const mode = state.villainMode[i];
+    const modeButtons = VILLAIN_MODES.map(
+      (m) => `
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary villain-mode-btn ${mode === m.key ? "active" : ""}"
+                data-villain="${i}" data-mode="${m.key}">${m.label}</button>
+      `
+    ).join("");
+
+    let content = "";
+    if (mode === "known") {
+      content = `
+        <div class="d-flex gap-2 mt-2">
           <button type="button" class="card-slot" data-slot="villain${i}_1">+</button>
           <button type="button" class="card-slot" data-slot="villain${i}_2">+</button>
         </div>
+      `;
+    } else if (mode === "range") {
+      const count = state.villainRanges[i].length;
+      content = `
+        <div class="mt-2">
+          <button type="button" class="btn btn-sm btn-outline-success villain-range-btn" data-villain="${i}">
+            ${count > 0 ? `Modifica range (${count} classi)` : "Imposta range"}
+          </button>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="villain-row mb-2 pb-2 border-bottom border-secondary-subtle">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span class="text-secondary small">Avversario ${i}</span>
+          <div class="btn-group" role="group">${modeButtons}</div>
+        </div>
+        ${content}
       </div>
     `;
   }
   villainsContainer.innerHTML = html;
   for (let i = 1; i <= state.numOpponents; i++) {
-    renderSlot(`villain${i}_1`);
-    renderSlot(`villain${i}_2`);
+    if (state.villainMode[i] === "known") {
+      renderSlot(`villain${i}_1`);
+      renderSlot(`villain${i}_2`);
+    }
   }
 }
 
-villainsContainer.addEventListener("change", (e) => {
-  const toggle = e.target.closest(".villain-known-toggle");
-  if (!toggle) return;
-  const idx = parseInt(toggle.dataset.villain, 10);
-  state.villainKnown[idx] = toggle.checked;
-  if (!toggle.checked) {
-    state.slots[`villain${idx}_1`] = null;
-    state.slots[`villain${idx}_2`] = null;
+villainsContainer.addEventListener("click", (e) => {
+  const modeBtn = e.target.closest(".villain-mode-btn");
+  if (modeBtn) {
+    const idx = parseInt(modeBtn.dataset.villain, 10);
+    const mode = modeBtn.dataset.mode;
+    state.villainMode[idx] = mode;
+    if (mode !== "known") {
+      state.slots[`villain${idx}_1`] = null;
+      state.slots[`villain${idx}_2`] = null;
+    }
+    if (mode !== "range") {
+      state.villainRanges[idx] = [];
+    }
+    renderVillains();
+    return;
   }
+
+  const rangeBtn = e.target.closest(".villain-range-btn");
+  if (rangeBtn) {
+    openRangeModal(parseInt(rangeBtn.dataset.villain, 10));
+  }
+});
+
+function rangeCellLabel(row, col) {
+  const higher = RANKS[Math.min(row, col)];
+  const lower = RANKS[Math.max(row, col)];
+  if (row === col) return `${higher}${higher}`;
+  return row < col ? `${higher}${lower}s` : `${higher}${lower}o`;
+}
+
+function buildRangeGrid() {
+  const idx = state.activeRangeVillain;
+  const selected = new Set(state.villainRanges[idx]);
+  let html = "";
+  for (let row = 0; row < RANKS.length; row++) {
+    for (let col = 0; col < RANKS.length; col++) {
+      const label = rangeCellLabel(row, col);
+      const isPair = row === col;
+      html += `
+        <button type="button" class="range-cell ${isPair ? "pair" : ""} ${selected.has(label) ? "selected" : ""}"
+                data-label="${label}">${label}</button>
+      `;
+    }
+  }
+  rangeGrid.innerHTML = html;
+  updateRangeSummary();
+}
+
+function updateRangeSummary() {
+  const idx = state.activeRangeVillain;
+  const count = state.villainRanges[idx].length;
+  document.getElementById("rangeSummary").textContent = `${count} classi selezionate`;
+}
+
+function openRangeModal(idx) {
+  state.activeRangeVillain = idx;
+  document.getElementById("rangeModalTitle").textContent = `Range avversario ${idx}`;
+  buildRangeGrid();
+  rangeModal.show();
+}
+
+rangeGrid.addEventListener("click", (e) => {
+  const cell = e.target.closest(".range-cell");
+  if (!cell) return;
+  const idx = state.activeRangeVillain;
+  const label = cell.dataset.label;
+  const current = state.villainRanges[idx];
+  const position = current.indexOf(label);
+  if (position === -1) {
+    current.push(label);
+    cell.classList.add("selected");
+  } else {
+    current.splice(position, 1);
+    cell.classList.remove("selected");
+  }
+  updateRangeSummary();
+});
+
+document.getElementById("clearRangeBtn").addEventListener("click", () => {
+  const idx = state.activeRangeVillain;
+  state.villainRanges[idx] = [];
+  buildRangeGrid();
+});
+
+rangeModalEl.addEventListener("hidden.bs.modal", () => {
   renderVillains();
 });
 
@@ -220,7 +335,8 @@ document.getElementById("tableSize").addEventListener("change", (e) => {
   const tableSize = parseInt(e.target.value, 10);
   state.numOpponents = tableSize - 1;
   for (let i = state.numOpponents + 1; i <= MAX_OPPONENTS; i++) {
-    state.villainKnown[i] = false;
+    state.villainMode[i] = "unknown";
+    state.villainRanges[i] = [];
     state.slots[`villain${i}_1`] = null;
     state.slots[`villain${i}_2`] = null;
   }
@@ -263,15 +379,28 @@ function collectBoard() {
 function collectVillainCards() {
   const villainCards = [];
   for (let i = 1; i <= state.numOpponents; i++) {
-    if (!state.villainKnown[i]) continue;
+    if (state.villainMode[i] !== "known") continue;
     const c1 = state.slots[`villain${i}_1`];
     const c2 = state.slots[`villain${i}_2`];
     if (!c1 || !c2) {
-      throw new Error(`Seleziona entrambe le carte per l'avversario ${i}, oppure disattiva "conosco le carte"`);
+      throw new Error(`Seleziona entrambe le carte per l'avversario ${i}, oppure cambia modalità`);
     }
     villainCards.push([c1, c2]);
   }
   return villainCards.length > 0 ? villainCards : null;
+}
+
+function collectVillainRanges() {
+  const villainRanges = [];
+  for (let i = 1; i <= state.numOpponents; i++) {
+    if (state.villainMode[i] !== "range") continue;
+    const labels = state.villainRanges[i];
+    if (labels.length === 0) {
+      throw new Error(`Imposta almeno una classe di mano nel range dell'avversario ${i}, oppure cambia modalità`);
+    }
+    villainRanges.push(labels);
+  }
+  return villainRanges.length > 0 ? villainRanges : null;
 }
 
 function showError(message) {
@@ -351,9 +480,11 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
 
   let board;
   let villainCards;
+  let villainRanges;
   try {
     board = collectBoard();
     villainCards = collectVillainCards();
+    villainRanges = collectVillainRanges();
   } catch (err) {
     showError(err.message);
     return;
@@ -366,6 +497,7 @@ document.getElementById("calcolaBtn").addEventListener("click", async () => {
     hero_cards: [hero1, hero2],
     board,
     villain_cards: villainCards,
+    villain_ranges: villainRanges,
     num_opponents: state.numOpponents,
   };
   const potOddsPayload = { amount_to_call: amountToCall, pot_before_call: potBeforeCall };

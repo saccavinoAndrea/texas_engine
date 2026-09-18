@@ -1,4 +1,11 @@
-"""Calcolo dell'equity: Monte Carlo su preflop/flop, enumerazione esatta su turn/river."""
+"""Calcolo dell'equity: Monte Carlo su preflop/flop, enumerazione esatta su turn/river.
+
+Gli avversari possono essere: a mano nota (villain_cards), a range noto
+(villain_ranges: un sottoinsieme di mani che l'utente stesso definisce,
+es. "penso abbia AA-QQ o AKs"), oppure a mano ignota/random. Un range è
+sempre fornito dall'utente, mai calcolato dal motore: resta pura
+combinatoria, nessun solver GTO.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +15,7 @@ from dataclasses import dataclass
 
 from engine.cards import Card, InvalidCardError, remaining_deck
 from engine.evaluator import compare_hands
+from engine.ranges import InvalidRangeError, expand_range
 
 DEFAULT_ITERATIONS = 20_000
 
@@ -29,6 +37,7 @@ def _validate_input(
     hero_cards: list[Card],
     board: list[Card],
     known_villain_hands: list[list[Card]],
+    villain_ranges: list[list[str]],
     num_opponents: int,
 ) -> None:
     if len(hero_cards) != 2:
@@ -37,8 +46,10 @@ def _validate_input(
         raise InvalidEquityInputError("board deve avere 0 (preflop), 3 (flop), 4 (turn) o 5 (river) carte")
     if num_opponents < 1:
         raise InvalidEquityInputError("num_opponents deve essere >= 1")
-    if len(known_villain_hands) > num_opponents:
-        raise InvalidEquityInputError("villain_cards non può contenere più mani di num_opponents")
+    if len(known_villain_hands) + len(villain_ranges) > num_opponents:
+        raise InvalidEquityInputError(
+            "il numero di avversari a mano nota + a range non può superare num_opponents"
+        )
     for hand in known_villain_hands:
         if len(hand) != 2:
             raise InvalidEquityInputError("ogni mano avversaria nota deve avere esattamente 2 carte")
@@ -48,49 +59,81 @@ def _validate_input(
         raise InvalidEquityInputError("carte duplicate tra hero/board/villain")
 
 
-def _players_after_deal(
-    hero_cards: list[Card],
-    known_villain_hands: list[list[Card]],
-    unknown_opponents_count: int,
-    draw: list[Card],
+def _deal_trial(
+    rng: random.Random,
+    deck: list[Card],
     unknown_board_count: int,
-) -> list[list[Card]]:
-    players = [hero_cards, *known_villain_hands]
-    offset = unknown_board_count
-    for _ in range(unknown_opponents_count):
-        players.append(draw[offset : offset + 2])
-        offset += 2
-    return players
+    unknown_random_count: int,
+    range_pools: list[list[tuple[Card, Card]]],
+    max_attempts: int = 50,
+) -> tuple[list[Card], list[list[Card]]]:
+    """Pesca le carte di un trial: prima gli avversari a range (dal pool più
+    vincolato), poi le carte random (avversari ignoti + board mancante) dal
+    mazzo residuo. Ritenta se un range risulta interamente bloccato dalle
+    carte già assegnate in questo stesso trial (evento raro)."""
+    for _ in range(max_attempts):
+        available = list(deck)
+        ranged_hands: list[list[Card]] = []
+        blocked = False
+
+        for pool in range_pools:
+            valid = [combo for combo in pool if combo[0] in available and combo[1] in available]
+            if not valid:
+                blocked = True
+                break
+            c1, c2 = rng.choice(valid)
+            ranged_hands.append([c1, c2])
+            available.remove(c1)
+            available.remove(c2)
+
+        if blocked:
+            continue
+
+        needed = unknown_board_count + 2 * unknown_random_count
+        drawn = rng.sample(available, needed)
+        board_draw = drawn[:unknown_board_count]
+        random_hands = [drawn[i : i + 2] for i in range(unknown_board_count, needed, 2)]
+        return board_draw, [*ranged_hands, *random_hands]
+
+    raise InvalidEquityInputError(
+        "impossibile pescare mani valide per i range indicati: troppo vincolati rispetto alle carte note"
+    )
 
 
 def calculate_equity(
     hero_cards: list[Card],
     board: list[Card],
     villain_cards: list[list[Card]] | None = None,
+    villain_ranges: list[list[str]] | None = None,
     num_opponents: int = 1,
     iterations: int = DEFAULT_ITERATIONS,
     rng: random.Random | None = None,
 ) -> EquityResult:
     known_villain_hands = villain_cards or []
-    _validate_input(hero_cards, board, known_villain_hands, num_opponents)
+    ranges = villain_ranges or []
+    _validate_input(hero_cards, board, known_villain_hands, ranges, num_opponents)
 
-    unknown_opponents_count = num_opponents - len(known_villain_hands)
+    unknown_random_count = num_opponents - len(known_villain_hands) - len(ranges)
     unknown_board_count = 5 - len(board)
 
     all_known = hero_cards + board + [c for hand in known_villain_hands for c in hand]
     deck = remaining_deck(all_known)
 
-    draw_size = unknown_board_count + 2 * unknown_opponents_count
+    try:
+        range_pools = [expand_range(labels, all_known) for labels in ranges]
+    except InvalidRangeError as exc:
+        raise InvalidEquityInputError(str(exc)) from exc
+
+    draw_size = unknown_board_count + 2 * unknown_random_count
 
     hero_share = 0.0
     opponents_share = [0.0] * num_opponents
     tie_trials = 0
     trials = 0
 
-    def record_outcome(draw: list[Card]) -> None:
+    def record_outcome(full_board: list[Card], unknown_hands: list[list[Card]]) -> None:
         nonlocal hero_share, tie_trials, trials
-        full_board = board + draw[:unknown_board_count]
-        players = _players_after_deal(hero_cards, known_villain_hands, unknown_opponents_count, draw, unknown_board_count)
+        players = [hero_cards, *known_villain_hands, *unknown_hands]
         winners = compare_hands(players, full_board)
         share = 1.0 / len(winners)
         if len(winners) > 1:
@@ -103,25 +146,30 @@ def calculate_equity(
                 opponents_share[opp_idx] += share
         trials += 1
 
-    if draw_size == 0:
+    if not ranges and draw_size == 0:
         # River con tutte le mani già chiuse: confronto diretto, nessun draw.
-        record_outcome([])
+        record_outcome(board, [])
         method = "direct_comparison"
-    elif unknown_opponents_count <= 1 and (len(board) == 4 or (len(board) == 5 and draw_size <= 2)):
+    elif not ranges and unknown_random_count <= 1 and (len(board) == 4 or (len(board) == 5 and draw_size <= 2)):
         # Turn (1 carta di board da scoprire, + eventuali 2 carte di un unico
         # avversario ignoto) oppure river con un solo avversario ignoto:
         # il numero di combinazioni residue resta piccolo, enumerazione esatta.
         method = "exact_enumeration"
         for combo in itertools.combinations(deck, draw_size):
-            record_outcome(list(combo))
+            combo = list(combo)
+            full_board = board + combo[:unknown_board_count]
+            unknown_hands = [combo[i : i + 2] for i in range(unknown_board_count, draw_size, 2)]
+            record_outcome(full_board, unknown_hands)
     else:
-        # Preflop/flop, oppure turn/river con 2+ avversari a mano ignota:
-        # con più range ignoti le combinazioni esatte esploderebbero
-        # combinatoriamente, quindi Monte Carlo anche su queste fasi.
+        # Preflop/flop, turn/river con 2+ avversari a mano ignota, o qualunque
+        # avversario a range: Monte Carlo (l'enumerazione esatta con range
+        # esploderebbe o richiederebbe una gestione combinatoria dedicata).
         method = "monte_carlo"
         rng = rng or random
         for _ in range(iterations):
-            record_outcome(rng.sample(deck, draw_size))
+            board_draw, unknown_hands = _deal_trial(rng, deck, unknown_board_count, unknown_random_count, range_pools)
+            full_board = board + board_draw
+            record_outcome(full_board, unknown_hands)
 
     return EquityResult(
         hero_equity=hero_share / trials,

@@ -189,3 +189,78 @@ def test_rejects_invalid_board_length():
 
     with pytest.raises(InvalidEquityInputError):
         calculate_equity(hero, board)
+
+
+def test_villain_range_matches_reference_value():
+    hero = parse_cards(["Ah", "As"])
+
+    result = calculate_equity(
+        hero, [], villain_ranges=[["KK", "QQ", "AKs"]], iterations=MC_ITERATIONS, rng=random.Random(20)
+    )
+
+    assert result.method == "monte_carlo"
+    assert result.hero_equity == pytest.approx(0.826, abs=MC_TOLERANCE)
+
+
+def test_villain_range_excludes_hero_blockers():
+    # AKs ha 4 combo; con Ah/As già in mano all'eroe, ne restano solo 2 (una per seme mancante)
+    hero = parse_cards(["Ah", "As"])
+
+    result = calculate_equity(hero, [], villain_ranges=[["AKs"]], iterations=20000, rng=random.Random(23))
+
+    assert result.method == "monte_carlo"
+    assert result.trials == 20000
+
+
+def test_known_villain_and_ranged_villain_together():
+    hero = parse_cards(["Ah", "As"])
+    known_villain = parse_cards(["2c", "2d"])
+
+    result = calculate_equity(
+        hero,
+        [],
+        villain_cards=[known_villain],
+        villain_ranges=[["KK", "AKs"]],
+        num_opponents=2,
+        iterations=MC_ITERATIONS,
+        rng=random.Random(21),
+    )
+
+    assert result.method == "monte_carlo"
+    assert len(result.opponents_equity) == 2
+    assert result.hero_equity + sum(result.opponents_equity) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_range_on_turn_forces_monte_carlo():
+    """Un range forza sempre Monte Carlo, anche su turn/river dove normalmente
+    si userebbe l'enumerazione esatta: evita l'esplosione combinatoria."""
+    hero = parse_cards(["Ah", "As"])
+    board = parse_cards(["2c", "5d", "9h", "Jd"])
+
+    result = calculate_equity(hero, board, villain_ranges=[["KK", "QQ"]], iterations=5000, rng=random.Random(22))
+
+    assert result.method == "monte_carlo"
+    assert result.trials == 5000
+
+
+def test_rejects_empty_range():
+    hero = parse_cards(["Ah", "As"])
+
+    with pytest.raises(InvalidEquityInputError):
+        calculate_equity(hero, [], villain_ranges=[[]])
+
+
+def test_rejects_fully_blocked_range():
+    hero = parse_cards(["Ah", "As"])
+    board = parse_cards(["Kc", "Kd", "Kh", "Ks"])  # tutti i re già sul board
+
+    with pytest.raises(InvalidEquityInputError):
+        calculate_equity(hero, board, villain_ranges=[["KK"]])
+
+
+def test_rejects_too_many_known_and_ranged_opponents():
+    hero = parse_cards(["Ah", "As"])
+    known_villain = parse_cards(["2c", "2d"])
+
+    with pytest.raises(InvalidEquityInputError):
+        calculate_equity(hero, [], villain_cards=[known_villain], villain_ranges=[["KK"]], num_opponents=1)

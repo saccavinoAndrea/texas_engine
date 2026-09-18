@@ -5,7 +5,7 @@ Motore di supporto live per Texas Hold'em cash game: equity e pot odds, usabile 
 ## Struttura del progetto
 
 ```
-engine/     logica pura (carte, evaluator, equity, pot odds), zero dipendenze da FastAPI
+engine/     logica pura (carte, evaluator, equity, pot odds, ev, range), zero dipendenze da FastAPI
 api/        FastAPI: schemas Pydantic, router, static files della PWA
 frontend/   PWA (Bootstrap5 vendorizzato localmente, nessuna dipendenza da CDN esterni)
 tests/      pytest su engine/ e sugli endpoint API
@@ -31,15 +31,18 @@ Il repo include `render.yaml`: basta collegare il repo su Render e verrà creato
 
 ## API
 
-- `POST /api/equity` — equity vs una o più mani note e/o ignote/random (fino a 8 avversari), split pot gestito proporzionalmente
+- `POST /api/equity` — equity vs mani note, range (definiti dall'utente, es. "AA,KK,AKs") e/o ignote/random (fino a 8 avversari), split pot gestito proporzionalmente
   - preflop/flop → Monte Carlo (iterazioni configurabili)
-  - turn/river con al massimo 1 avversario ignoto → enumerazione esatta
-  - turn/river con 2+ avversari ignoti → Monte Carlo (l'enumerazione esatta esploderebbe combinatoriamente)
+  - turn/river con al massimo 1 avversario ignoto e nessun range → enumerazione esatta
+  - turn/river con 2+ avversari ignoti, o con un range su qualunque avversario → Monte Carlo (l'enumerazione esatta esploderebbe o richiederebbe una gestione combinatoria dedicata)
   - river con tutte le mani note → confronto diretto
 - `POST /api/pot-odds` — equity minima richiesta per un call profittevole
+- `POST /api/ev` — EV di una chiamata data l'equity, il piatto e l'importo da chiamare
+- `POST /api/shove-ev` — EV di un all-in con fold equity (percentuale di fold stimata dall'utente, non calcolata dal motore)
 - `GET /api/health` — health check / warm-up
 
 ## Limitazioni note (MVP)
 
-- Nessun range avversario personalizzato (solo mano esatta nota, oppure ignota/random), nessuna stima di fold equity, nessun calcolo EV/bet sizing
+- I range avversario sono definiti manualmente dall'utente (classi di mano tipo "AKs", "77", "QJo"); non c'è alcun suggerimento o calcolo automatico di range ottimali (nessun solver GTO)
+- Nessuna stima automatica di fold equity: va inserita come lettura propria dell'utente
 - Nessuno storico delle mani: lo stato vive solo nel browser durante la sessione

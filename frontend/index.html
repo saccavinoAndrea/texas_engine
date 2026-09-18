@@ -74,7 +74,7 @@
     <section class="mb-3">
       <h2 class="h6 text-uppercase text-secondary">Avversari</h2>
       <div id="villainsContainer"></div>
-      <div class="form-text">Per ogni avversario indica le carte solo se le conosci: gli altri restano a mano ignota/random.</div>
+      <div class="form-text">Per ogni avversario scegli: ignoto/random, carte note, oppure un range di mani che ritieni plausibile.</div>
     </section>
 
     <section class="mb-3">
@@ -161,6 +161,26 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-danger" id="clearSlotBtn">Svuota</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal selezione range avversario -->
+  <div class="modal" tabindex="-1" id="rangeModal">
+    <div class="modal-dialog modal-fullscreen-sm-down modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="rangeModalTitle">Range avversario</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="rangeGrid" class="range-grid"></div>
+          <div class="text-secondary small text-center mt-2" id="rangeSummary">0 classi selezionate</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger" id="clearRangeBtn">Svuota range</button>
+          <button type="button" class="btn btn-success" data-bs-dismiss="modal">Fatto</button>
         </div>
       </div>
     </div>
