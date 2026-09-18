@@ -12,6 +12,7 @@ from __future__ import annotations
 import itertools
 import math
 import random
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 from engine.cards import Card, InvalidCardError, remaining_deck
@@ -20,6 +21,13 @@ from engine.ranges import InvalidRangeError, expand_range
 
 DEFAULT_ITERATIONS = 20_000
 CONFIDENCE_Z_SCORE = 1.96  # ~95% per una normale, valido per n grande (approssimazione di Wald)
+
+# Oltre questo numero di combinazioni residue l'enumerazione esatta costa più del
+# Monte Carlo senza dare un risultato praticamente più utile, quindi si campiona.
+# Il caso più pesante che resta esatto è il turn contro un avversario ignoto
+# (46 river x 990 mani = 45.540 valutazioni, ~1s); il successivo per dimensione
+# sarebbe il flop contro un ignoto, oltre un milione di combinazioni.
+EXACT_ENUMERATION_MAX_COMBOS = 50_000
 
 
 class InvalidEquityInputError(ValueError):
@@ -116,6 +124,43 @@ def _deal_trial(
     )
 
 
+def _enumeration_size(deck_size: int, unknown_board_count: int, unknown_random_count: int) -> int:
+    """Quante distribuzioni distinte produrrebbe _enumerate_draws."""
+    size = math.comb(deck_size, unknown_board_count)
+    if unknown_random_count == 1:
+        size *= math.comb(deck_size - unknown_board_count, 2)
+    return size
+
+
+def _enumerate_draws(
+    deck: list[Card],
+    unknown_board_count: int,
+    unknown_random_count: int,
+) -> Iterator[tuple[list[Card], list[list[Card]]]]:
+    """Enumera le carte di board mancanti e la mano dell'avversario ignoto.
+
+    I due gruppi vanno pescati in due passaggi annidati e non da un'unica
+    itertools.combinations spezzata per posizione: le combinazioni escono già
+    ordinate secondo il mazzo, quindi le prime carte finirebbero sempre sul board
+    e le ultime sempre in mano all'avversario. Di ogni insieme di carte si
+    enumererebbe una sola delle ripartizioni possibili, sempre la stessa (con una
+    carta di board e due di mano, un caso su tre), e l'equity ne uscirebbe falsata.
+
+    Gestisce al massimo un avversario a mano ignota: con due o più andrebbe
+    enumerata anche l'assegnazione delle coppie ai singoli avversari, e il volume
+    supererebbe comunque EXACT_ENUMERATION_MAX_COMBOS finendo in Monte Carlo.
+    """
+    for board_draw in itertools.combinations(deck, unknown_board_count):
+        if unknown_random_count == 0:
+            yield list(board_draw), []
+            continue
+
+        on_board = set(board_draw)
+        remaining = [card for card in deck if card not in on_board]
+        for hand in itertools.combinations(remaining, 2):
+            yield list(board_draw), [list(hand)]
+
+
 def calculate_equity(
     hero_cards: list[Card],
     board: list[Card],
@@ -140,8 +185,6 @@ def calculate_equity(
     except InvalidRangeError as exc:
         raise InvalidEquityInputError(str(exc)) from exc
 
-    draw_size = unknown_board_count + 2 * unknown_random_count
-
     hero_share = 0.0
     opponents_share = [0.0] * num_opponents
     tie_trials = 0
@@ -162,24 +205,25 @@ def calculate_equity(
                 opponents_share[opp_idx] += share
         trials += 1
 
-    if not ranges and draw_size == 0:
+    if not ranges and unknown_board_count == 0 and unknown_random_count == 0:
         # River con tutte le mani già chiuse: confronto diretto, nessun draw.
         record_outcome(board, [])
         method = "direct_comparison"
-    elif not ranges and unknown_random_count <= 1 and (len(board) == 4 or (len(board) == 5 and draw_size <= 2)):
-        # Turn (1 carta di board da scoprire, + eventuali 2 carte di un unico
-        # avversario ignoto) oppure river con un solo avversario ignoto:
-        # il numero di combinazioni residue resta piccolo, enumerazione esatta.
+    elif (
+        not ranges
+        and unknown_random_count <= 1
+        and _enumeration_size(len(deck), unknown_board_count, unknown_random_count)
+        <= EXACT_ENUMERATION_MAX_COMBOS
+    ):
+        # Poche combinazioni residue: le percorriamo tutte una per una, il
+        # risultato è la probabilità esatta e non una stima.
         method = "exact_enumeration"
-        for combo in itertools.combinations(deck, draw_size):
-            combo = list(combo)
-            full_board = board + combo[:unknown_board_count]
-            unknown_hands = [combo[i : i + 2] for i in range(unknown_board_count, draw_size, 2)]
-            record_outcome(full_board, unknown_hands)
+        for board_draw, unknown_hands in _enumerate_draws(deck, unknown_board_count, unknown_random_count):
+            record_outcome(board + board_draw, unknown_hands)
     else:
-        # Preflop/flop, turn/river con 2+ avversari a mano ignota, o qualunque
-        # avversario a range: Monte Carlo (l'enumerazione esatta con range
-        # esploderebbe o richiederebbe una gestione combinatoria dedicata).
+        # Troppe combinazioni (preflop, o 2+ avversari a mano ignota), oppure
+        # avversari a range: Monte Carlo (l'enumerazione esatta con i range
+        # richiederebbe una gestione combinatoria dedicata).
         method = "monte_carlo"
         rng = rng or random
         for _ in range(iterations):

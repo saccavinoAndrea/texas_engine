@@ -31,14 +31,15 @@ Il repo include `render.yaml`: basta collegare il repo su Render e verrà creato
 
 ## API
 
-- `POST /api/equity` — equity vs mani note, range (definiti dall'utente, es. "AA,KK,AKs") e/o ignote/random (fino a 8 avversari), split pot gestito proporzionalmente
-  - preflop/flop → Monte Carlo (iterazioni configurabili)
-  - turn/river con al massimo 1 avversario ignoto e nessun range → enumerazione esatta
-  - turn/river con 2+ avversari ignoti, o con un range su qualunque avversario → Monte Carlo (l'enumerazione esatta esploderebbe o richiederebbe una gestione combinatoria dedicata)
-  - river con tutte le mani note → confronto diretto
+- `POST /api/equity` — equity vs mani note, range (definiti dall'utente, es. "AA,KK,AKs") e/o ignote/random (fino a 8 avversari), split pot gestito proporzionalmente. Il metodo si sceglie da sé in base a quante combinazioni restano davvero da scoprire:
+  - tutte le mani note e board completo → confronto diretto
+  - combinazioni residue sotto la soglia (`EXACT_ENUMERATION_MAX_COMBOS`, con al massimo 1 avversario ignoto e nessun range) → enumerazione esatta: rientrano turn e river, e anche il flop quando le mani avversarie sono note
+  - tutto il resto — preflop, 2+ avversari ignoti, o un range su qualunque avversario → Monte Carlo (iterazioni configurabili), con errore standard e intervallo di confidenza al 95% nella risposta
 - `POST /api/pot-odds` — equity minima richiesta per un call profittevole
-- `POST /api/ev` — EV di una chiamata data l'equity, il piatto e l'importo da chiamare
+- `POST /api/ev` — EV di una chiamata data l'equity, il piatto e l'importo da chiamare; `implied_future_bet` opzionale per le implied odds stimate dall'utente
 - `POST /api/shove-ev` — EV di un all-in con fold equity (percentuale di fold stimata dall'utente, non calcolata dal motore)
+- `POST /api/table-metrics` — SPR, MDF e tetto teorico per le implied odds (quanto resta nello stack dopo la chiamata); i valori non calcolabili tornano `null` invece di far fallire la richiesta
+- `POST /api/range-combo-count` — quante combinazioni concrete restano in un range dopo i blocker delle carte note
 - `GET /api/health` — health check / warm-up
 
 ## Limitazioni note (MVP)

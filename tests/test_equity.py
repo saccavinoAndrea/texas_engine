@@ -6,7 +6,7 @@ import pytest
 from collections import Counter
 
 from engine.cards import Card, full_deck, parse_cards, remaining_deck
-from engine.equity import InvalidEquityInputError, _deal_trial, calculate_equity
+from engine.equity import InvalidEquityInputError, _deal_trial, _enumerate_draws, calculate_equity
 from engine.evaluator import compare_hands
 
 MC_ITERATIONS = 60_000
@@ -43,9 +43,14 @@ def test_flop_flush_draw_plus_overcards_vs_overpair():
     villain = parse_cards(["Qc", "Qd"])
     board = parse_cards(["Jh", "9h", "2c"])
 
-    result = calculate_equity(hero, board, villain_cards=[villain], iterations=MC_ITERATIONS, rng=random.Random(3))
+    result = calculate_equity(hero, board, villain_cards=[villain])
 
-    assert result.method == "monte_carlo"
+    # Mani entrambe note e solo turn+river da scoprire: C(45, 2) = 990 combinazioni,
+    # abbastanza poche da enumerarle tutte invece di campionarle.
+    assert result.method == "exact_enumeration"
+    assert result.trials == 990
+    # Il risultato ora è esatto: la tolleranza copre solo l'arrotondamento del
+    # valore di letteratura, non un errore di campionamento.
     assert result.hero_equity == pytest.approx(0.536, abs=MC_TOLERANCE)
 
 
@@ -73,6 +78,53 @@ def test_exact_methods_do_not_report_confidence_interval():
     assert result.standard_error is None
     assert result.ci_low is None
     assert result.ci_high is None
+
+
+def test_enumerate_draws_covers_every_board_hand_split_once():
+    """Controesempio al bias posizionale: pescando board e mano da un'unica
+    itertools.combinations e spezzandola per posizione, la carta di board sarebbe
+    sempre la più bassa nell'ordine del mazzo. Di ogni terna si enumererebbe una
+    sola ripartizione su tre, e le carte in fondo al mazzo non finirebbero mai sul
+    board. Qui si verifica che ogni carta faccia da board lo stesso numero di volte
+    e che nessuna coppia (board, mano) venga enumerata due volte.
+    """
+    deck = full_deck()[:10]  # mazzo ridotto: test strutturale, non serve valutare mani
+
+    draws = list(_enumerate_draws(deck, unknown_board_count=1, unknown_random_count=1))
+
+    hands_per_board_card = 36  # C(9, 2): le mani possibili con le carte rimaste
+    assert len(draws) == len(deck) * hands_per_board_card
+    assert len({(board[0], frozenset(hands[0])) for board, hands in draws}) == len(draws)
+
+    board_card_counts = Counter(board[0] for board, _ in draws)
+    assert set(board_card_counts) == set(deck)
+    assert set(board_card_counts.values()) == {hands_per_board_card}
+
+
+def test_turn_against_unknown_opponent_matches_reference_implementation():
+    """Caso misto (1 carta di board + 2 carte di mano da scoprire): è quello in cui
+    un'enumerazione spezzata per posizione sbagliava di ~10 punti di equity."""
+    hero = parse_cards(["Ah", "Kh"])
+    board = parse_cards(["Jh", "9h", "2c", "Td"])
+
+    result = calculate_equity(hero, board, num_opponents=1)
+
+    assert result.method == "exact_enumeration"
+
+    # Riferimento indipendente: ogni river possibile x ogni mano avversaria residua.
+    deck = remaining_deck(hero + board)
+    hero_wins_share = 0.0
+    trials = 0
+    for river in deck:
+        full_board = board + [river]
+        for villain in itertools.combinations([c for c in deck if c != river], 2):
+            winners = compare_hands([hero, list(villain)], full_board)
+            if 0 in winners:
+                hero_wins_share += 1.0 / len(winners)
+            trials += 1
+
+    assert result.trials == trials
+    assert result.hero_equity == pytest.approx(hero_wins_share / trials, abs=1e-9)
 
 
 def test_turn_uses_exact_enumeration_and_matches_reference_implementation():

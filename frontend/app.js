@@ -465,6 +465,7 @@ document.getElementById("bigBlind").addEventListener("input", updateBBHints);
 document.getElementById("useBuyInBtn").addEventListener("click", () => {
   const buyIn = parseFloat(document.getElementById("buyIn").value || "0");
   document.getElementById("shoveAmount").value = buyIn.toFixed(2);
+  updateBBHints();
 });
 
 document.getElementById("useBuyInStackBtn").addEventListener("click", () => {
