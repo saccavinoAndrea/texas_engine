@@ -2,6 +2,8 @@
 
 Comandi per eseguire Texas Engine in locale: in fase di sviluppo/test da PC, e per l'uso reale dal telefono al tavolo (stessa rete wifi/hotspot).
 
+> Per l'uso dallo smartphone Android, con il PC acceso oppure senza, c'è una guida passo passo dedicata: [`GUIDA_SMARTPHONE.md`](GUIDA_SMARTPHONE.md).
+
 ## Requisiti
 
 - Python 3.11+

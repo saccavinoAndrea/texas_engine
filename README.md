@@ -21,7 +21,7 @@ poetry run uvicorn api.main:app --reload
 
 L'app (API + frontend) sarà su `http://127.0.0.1:8000`.
 
-Per i comandi di avvio dettagliati — incluso l'accesso da smartphone sulla stessa rete wifi/hotspot — vedi [`GUIDA_AVVIO.md`](GUIDA_AVVIO.md).
+Per i comandi di avvio dettagliati vedi [`GUIDA_AVVIO.md`](GUIDA_AVVIO.md); per usare l'app dal telefono, con o senza il PC acceso, vedi [`GUIDA_SMARTPHONE.md`](GUIDA_SMARTPHONE.md).
 
 ## Deploy (Render, piano free)
 
